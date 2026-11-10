@@ -119,18 +119,18 @@ with open("enemy_data.h", "w") as out:
 # Original title screen: paper background, Isaac logo and Press Start drawing.
 title = Image.open("assets/main menu/titlemenu.png").convert("RGBA")
 logo = Image.open("assets/main menu/logo.png").convert("RGBA")
-menu_bg = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
-menu_bg.alpha_composite(title.crop((0, 0, 480, 272)), (0, 0))
-menu_logo = Image.new("RGBA", (512, 256), (0, 0, 0, 0))
-menu_logo.alpha_composite(logo.crop((0, 0, 480, 160)), (0, 0))
-menu_prompt = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
-menu_prompt.alpha_composite(title.crop((0, 384, 156, 160)), (0, 0))
+menu_bg = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+menu_bg.alpha_composite(title.crop((0, 0, 480, 272)).resize((256, 145), NEAREST), (0, 0))
+menu_logo = Image.new("RGBA", (256, 128), (0, 0, 0, 0))
+menu_logo.alpha_composite(logo.crop((0, 0, 480, 160)).resize((256, 85), NEAREST), (0, 0))
+menu_prompt = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+menu_prompt.alpha_composite(title.crop((0, 384, 156, 544)).resize((125, 128), NEAREST), (0, 0))
 with open("menu_data.h", "w") as out:
     out.write("#ifndef MENU_DATA_H\n#define MENU_DATA_H\n#include <stdint.h>\n")
     for name, img, count in [
-        ("menu_bg_pixels", menu_bg, 262144),
-        ("menu_logo_pixels", menu_logo, 131072),
-        ("menu_prompt_pixels", menu_prompt, 65536),
+        ("menu_bg_pixels", menu_bg, 65536),
+        ("menu_logo_pixels", menu_logo, 32768),
+        ("menu_prompt_pixels", menu_prompt, 16384),
     ]:
         out.write("static const uint32_t %s[%d] __attribute__((aligned(64))) = {\n" % (name, count))
         write_array(out, rgba_to_gs(img))
