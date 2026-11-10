@@ -1,9 +1,6 @@
-EE_BIN = isaac-ps2.elf
-EE_OBJS = main.o
 
-EE_INCS += -I$(PS2DEV)/gsKit/include
-EE_LDFLAGS += -L$(PS2DEV)/gsKit/lib
-EE_LIBS += -lgskit -ldmakit
+EE_BIN = isaac-ps2.elf
+EE_OBJS = main.o game.o
 
 all: $(EE_BIN)
 
