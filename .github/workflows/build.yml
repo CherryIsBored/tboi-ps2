@@ -10,22 +10,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/ps2dev/ps2dev:latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify PS2 toolchain
-        run: |
-          echo "Checking PS2 compiler..."
-          which mips64r5900el-ps2-elf-g++
-          echo "Checking PS2SDK..."
-          echo "$PS2SDK"
+      - name: Build Docker image
+        run: docker build -t isaac-ps2-builder .
 
-      - name: Compile game
-        run: make clean all
+      - name: Compile ELF
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            isaac-ps2-builder
 
       - name: Upload ELF
         uses: actions/upload-artifact@v4
