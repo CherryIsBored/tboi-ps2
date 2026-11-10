@@ -25,9 +25,8 @@ void game_init(int width, int height, GSGLOBAL* gs) {
 
     for (int i = 0; i < 16; i++) tears[i].active = 0;
 
-    // The sprite is embedded in the ELF by tools/convert_sprite.py.
     isaacTexture.Width = 32;
-    isaacTexture.Height = 32;
+    isaacTexture.Height = 64;
     isaacTexture.PSM = GS_PSM_CT32;
     isaacTexture.ClutPSM = GS_PSM_CT32;
     isaacTexture.Mem = (u32*)isaac_pixels;
@@ -37,7 +36,7 @@ void game_init(int width, int height, GSGLOBAL* gs) {
     isaacTexture.Delayed = GS_SETTING_OFF;
     isaacTexture.Vram = gsKit_vram_alloc(
         gs,
-        gsKit_texture_size(32, 32, GS_PSM_CT32),
+        gsKit_texture_size(32, 64, GS_PSM_CT32),
         GSKIT_ALLOC_USERBUFFER
     );
     gsKit_texture_upload(gs, &isaacTexture);
@@ -108,13 +107,12 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_prim_sprite(gs, roomRight - 12, roomTop,
         roomRight, roomBottom, 2, wall);
 
-    // Draw the extracted 32x32 Isaac frame with its original transparency.
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     gsKit_set_test(gs, GS_ATEST_OFF);
     gsKit_prim_sprite_texture(
         gs, &isaacTexture,
-        isaac.x - 16, isaac.y - 16, 0, 0,
-        isaac.x + 16, isaac.y + 16, 32, 32,
+        isaac.x - 16, isaac.y - 24, 0, 0,
+        isaac.x + 16, isaac.y + 24, 32, 48,
         3, 0x80808080
     );
     gsKit_set_test(gs, GS_ATEST_ON);
