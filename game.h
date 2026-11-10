@@ -4,18 +4,20 @@
 #include <gsKit.h>
 
 struct Player {
-    float x;
-    float y;
-    float speed;
+    float x, y, speed;
     int health;
 };
 
 struct Tear {
-    float x;
-    float y;
-    float vx;
-    float vy;
+    float x, y, vx, vy;
     int active;
+};
+
+struct Enemy {
+    float x, y, speed;
+    int hp;
+    int active;
+    int flash;
 };
 
 void game_init(int width, int height, GSGLOBAL* gs);
