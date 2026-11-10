@@ -11,7 +11,7 @@ body = image.crop((0, 32, 32, 64))
 head = image.crop((0, 0, 32, 32))
 
 frame = Image.new("RGBA", (32, 48), (0, 0, 0, 0))
-frame.alpha_composite(body, (0, 16))
+frame.alpha_composite(body, (0, 8))
 frame.alpha_composite(head, (0, 0))
 
 pixels = []
