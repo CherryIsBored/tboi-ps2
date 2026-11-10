@@ -354,8 +354,17 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
 
-    for (int i = 0; i < 16; i++) if (tears[i].active)
-        gsKit_prim_sprite(gs, tears[i].x - 4, tears[i].y - 4, tears[i].x + 4, tears[i].y + 4, 6, tearColor);
+    // Tears are untextured GS sprites. Draw them with alpha testing disabled;
+    // the test is intended for cutout textures and can reject these primitives.
+    gsKit_set_test(gs, GS_ATEST_OFF);
+    gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
+    for (int i = 0; i < 16; i++) if (tears[i].active) {
+        // Bright, solid cyan tear with a larger footprint for visibility.
+        gsKit_prim_sprite(gs, tears[i].x - 5, tears[i].y - 5,
+            tears[i].x + 5, tears[i].y + 5, 6,
+            GS_SETREG_RGBAQ(110, 205, 255, 0x80, 0));
+    }
+    gsKit_set_test(gs, GS_ATEST_ON);
 
     // Original heart icon from ui_hearts.png.
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
