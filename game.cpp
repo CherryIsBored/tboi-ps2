@@ -308,15 +308,44 @@ void game_draw(GSGLOBAL* gs) {
         return;
     }
 
-    gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
+    // Explicitly repaint the whole gameplay frame before drawing the room.
+    // This prevents the title-screen framebuffer from showing through if the
+    // GS texture/alpha state survives a flip on real hardware.
     gsKit_set_test(gs, GS_ATEST_OFF);
+    gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
+    gsKit_prim_sprite(gs, 0, 0, gs->Width, gs->Height, 0,
+        GS_SETREG_RGBAQ(20, 17, 24, 0x80, 0));
+
     gsKit_prim_sprite_texture(gs, &roomTexture, roomLeft, roomTop, 0, 0, roomRight, roomBottom, 256, 256, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+
+    // Four door openings are drawn strictly inside the wall thickness.
+    // Each is a dark passage with a brown lintel and side jambs; none reaches
+    // into the walkable floor, and all four are centered on their wall.
+    const u64 doorDark = GS_SETREG_RGBAQ(8, 6, 7, 0x80, 0);
+    const u64 doorFrame = GS_SETREG_RGBAQ(91, 59, 43, 0x80, 0);
+    float cx = (roomLeft + roomRight) * 0.5f;
+    float cy = (roomTop + roomBottom) * 0.5f;
+    // North / south openings (wall thickness ~34 screen pixels).
+    gsKit_prim_sprite(gs, cx - 13, roomTop + 4, cx + 13, roomTop + 30, 2, doorDark);
+    gsKit_prim_sprite(gs, cx - 16, roomTop + 2, cx - 12, roomTop + 32, 2, doorFrame);
+    gsKit_prim_sprite(gs, cx + 12, roomTop + 2, cx + 16, roomTop + 32, 2, doorFrame);
+    gsKit_prim_sprite(gs, cx - 16, roomTop + 2, cx + 16, roomTop + 6, 2, doorFrame);
+    gsKit_prim_sprite(gs, cx - 13, roomBottom - 30, cx + 13, roomBottom - 4, 2, doorDark);
+    gsKit_prim_sprite(gs, cx - 16, roomBottom - 32, cx - 12, roomBottom - 2, 2, doorFrame);
+    gsKit_prim_sprite(gs, cx + 12, roomBottom - 32, cx + 16, roomBottom - 2, 2, doorFrame);
+    gsKit_prim_sprite(gs, cx - 16, roomBottom - 6, cx + 16, roomBottom - 2, 2, doorFrame);
+    // West / east openings (wall thickness ~45 screen pixels).
+    gsKit_prim_sprite(gs, roomLeft + 5, cy - 13, roomLeft + 35, cy + 13, 2, doorDark);
+    gsKit_prim_sprite(gs, roomLeft + 3, cy - 16, roomLeft + 33, cy - 12, 2, doorFrame);
+    gsKit_prim_sprite(gs, roomLeft + 3, cy + 12, roomLeft + 33, cy + 16, 2, doorFrame);
+    gsKit_prim_sprite(gs, roomLeft + 3, cy - 16, roomLeft + 7, cy + 16, 2, doorFrame);
+    gsKit_prim_sprite(gs, roomRight - 35, cy - 13, roomRight - 5, cy + 13, 2, doorDark);
+    gsKit_prim_sprite(gs, roomRight - 33, cy - 16, roomRight - 3, cy - 12, 2, doorFrame);
+    gsKit_prim_sprite(gs, roomRight - 33, cy + 12, roomRight - 3, cy + 16, 2, doorFrame);
+    gsKit_prim_sprite(gs, roomRight - 7, cy - 16, roomRight - 3, cy + 16, 2, doorFrame);
+
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
-
-    // Doorways are part of the room texture: four cut-through arches with
-    // dark interiors, rather than flat colored bars painted over the wall.
-    // A small clear-state marker remains in the HUD to show when exits unlock.
 
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     gsKit_set_test(gs, GS_ATEST_OFF);
