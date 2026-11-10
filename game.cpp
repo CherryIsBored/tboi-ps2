@@ -300,8 +300,8 @@ void game_draw(GSGLOBAL* gs) {
         gsKit_prim_sprite_texture(gs, &menuLogoTexture, gs->Width * 0.5f - 160, 54, 0, 0,
             gs->Width * 0.5f + 160, 182, 256, 128, 2, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
         if ((menuTick / 20) % 2 == 0) {
-            gsKit_prim_sprite_texture(gs, &menuPromptTexture, gs->Width * 0.5f - 62, gs->Height - 118, 0, 0,
-                gs->Width * 0.5f + 62, gs->Height - 10, 125, 128, 3, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+            gsKit_prim_sprite_texture(gs, &menuPromptTexture, gs->Width * 0.5f - 62, gs->Height - 150, 0, 0,
+                gs->Width * 0.5f + 62, gs->Height - 42, 125, 128, 3, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
         }
         gsKit_set_test(gs, GS_ATEST_ON);
         gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
