@@ -34,6 +34,8 @@ static int shootTimer = 0;
 static int menuTick = 0;
 static int enemyAnimTick = 0;
 static unsigned int roomRng = 0x41C64E6Du;
+static int dropsSinceKey = 0;
+static int dropsSinceBomb = 0;
 static unsigned int room_random() {
     roomRng = roomRng * 1664525u + 1013904223u;
     return roomRng;
@@ -65,7 +67,27 @@ static void drop_pickup(float x, float y, int seed) {
         // Use the high RNG bits (the low bits of an LCG cycle predictably).
         // Weight common coins, with reliable chances for hearts, keys and bombs.
         unsigned int roll = (room_random() >> 16) % 100u;
-        pickups[i].type = roll < 45u ? 1 : (roll < 70u ? 0 : (roll < 85u ? 2 : 3));
+        // Pity counters keep utility drops from disappearing across several
+        // rooms: if a key or bomb has not dropped in four kills, force it.
+        dropsSinceKey++;
+        dropsSinceBomb++;
+        if (dropsSinceBomb >= 5) {
+            pickups[i].type = 3;
+            dropsSinceBomb = 0;
+        } else if (dropsSinceKey >= 5) {
+            pickups[i].type = 2;
+            dropsSinceKey = 0;
+        } else if (roll < 35u) {
+            pickups[i].type = 1;
+        } else if (roll < 60u) {
+            pickups[i].type = 0;
+        } else if (roll < 80u) {
+            pickups[i].type = 2;
+            dropsSinceKey = 0;
+        } else {
+            pickups[i].type = 3;
+            dropsSinceBomb = 0;
+        }
         pickups[i].active = 1;
         break;
     }
@@ -114,6 +136,7 @@ void game_init(int width, int height, GSGLOBAL* gs) {
     facing = walkFrame = walkTick = 0;
     roomNumber = 1;
     roomRng = 0x41C64E6Du;
+    dropsSinceKey = dropsSinceBomb = 0;
     hitFlash = 0;
     gameStarted = 0;
     shootTimer = 0;
@@ -135,7 +158,7 @@ void game_init(int width, int height, GSGLOBAL* gs) {
     init_texture(gs, &heartTexture, 16, 16, heart_pixels);
     init_texture(gs, &menuBackgroundTexture, 256, 256, menu_bg_pixels);
     init_texture(gs, &menuLogoTexture, 256, 128, menu_logo_pixels);
-    init_texture(gs, &menuPromptTexture, 128, 128, menu_prompt_pixels);
+    init_texture(gs, &menuPromptTexture, 128, 96, menu_prompt_pixels);
     spawn_room();
 }
 
@@ -305,8 +328,8 @@ void game_draw(GSGLOBAL* gs) {
         gsKit_prim_sprite_texture(gs, &menuLogoTexture, gs->Width * 0.5f - 160, gs->Height * 0.22f, 0, 0,
             gs->Width * 0.5f + 160, gs->Height * 0.22f + 128, 256, 128, 2, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
         if ((menuTick / 20) % 2 == 0) {
-            gsKit_prim_sprite_texture(gs, &menuPromptTexture, gs->Width * 0.5f - 62, gs->Height * 0.66f, 0, 0,
-                gs->Width * 0.5f + 62, gs->Height * 0.66f + 108, 125, 128, 3, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+            gsKit_prim_sprite_texture(gs, &menuPromptTexture, gs->Width * 0.5f - 120, gs->Height * 0.68f, 0, 0,
+                gs->Width * 0.5f + 120, gs->Height * 0.68f + 90, 128, 96, 3, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
         }
         gsKit_set_test(gs, GS_ATEST_ON);
         gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
