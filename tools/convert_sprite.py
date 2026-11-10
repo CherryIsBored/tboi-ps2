@@ -87,21 +87,23 @@ with open("sprite_data.h", "w") as out:
 # Original Basement room: tiled floor plus wall strips cut from the actual room atlas.
 basement = Image.open("assets/backdrop/01_basement.png").convert("RGBA")
 floor = Image.open("assets/backdrop/01_lbasementfloor.png").convert("RGBA")
-room = Image.new("RGBA", (512, 512), (0, 0, 0, 255))
-floor_tile = floor.resize((512, 182), NEAREST)
-for y in (64, 246, 428):
-    room.alpha_composite(floor_tile, (0, y))
-wall_strip = basement.crop((0, 0, 240, 48)).resize((512, 64), NEAREST)
+room = Image.new("RGBA", (256, 256), (0, 0, 0, 255))
+floor_tile = floor.resize((256, 91), NEAREST)
+room.alpha_composite(floor_tile, (0, 32))
+room.alpha_composite(floor_tile, (0, 123))
+room.alpha_composite(floor_tile.crop((0, 0, 256, 10)), (0, 214))
+wall_strip = basement.crop((0, 0, 240, 48)).resize((256, 32), NEAREST)
 room.alpha_composite(wall_strip, (0, 0))
-room.alpha_composite(wall_strip.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 448))
-side_strip = wall_strip.transpose(Image.Transpose.ROTATE_90).resize((64, 512), NEAREST)
+room.alpha_composite(wall_strip.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 224))
+side_strip = wall_strip.transpose(Image.Transpose.ROTATE_90).resize((32, 256), NEAREST)
 room.alpha_composite(side_strip, (0, 0))
-room.alpha_composite(side_strip.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (448, 0))
+room.alpha_composite(side_strip.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (224, 0))
 with open("room_data.h", "w") as out:
-    out.write("#ifndef ROOM_DATA_H\n#define ROOM_DATA_H\n#include <stdint.h>\n")
-    out.write("static const uint32_t room_pixels[262144] __attribute__((aligned(64))) = {\n")
+    out.write("#ifndef ROOM_DATA_H\\n#define ROOM_DATA_H\\n#include <stdint.h>\\n")
+    out.write("static const uint32_t room_pixels[65536] __attribute__((aligned(64))) = {\\n")
     write_array(out, rgba_to_gs(room))
-    out.write("};\n#endif\n")
+    out.write("};\\n#endif\\n")
+
 
 # Real animated fly frames from the uploaded Repentance sprite sheet.
 flies = Image.open("assets/repentance/big_flies.png").convert("RGBA")
