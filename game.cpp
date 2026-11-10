@@ -3,13 +3,16 @@
 
 static Player isaac;
 static Tear tears[16];
-static GSTEXTURE isaacTexture;
+static GSTEXTURE isaacTextures[4][10];
 
 static float roomLeft;
 static float roomRight;
 static float roomTop;
 static float roomBottom;
 static int tearCooldown = 0;
+static int facing = 0; // 0 down, 1 up, 2 left, 3 right
+static int walkFrame = 0;
+static int walkTick = 0;
 
 void game_init(int width, int height, GSGLOBAL* gs) {
     roomLeft = width / 2.0f - 145.0f;
@@ -22,24 +25,32 @@ void game_init(int width, int height, GSGLOBAL* gs) {
     isaac.speed = 2.5f;
     isaac.health = 6;
     tearCooldown = 0;
+    facing = 0;
+    walkFrame = 0;
+    walkTick = 0;
 
     for (int i = 0; i < 16; i++) tears[i].active = 0;
 
-    isaacTexture.Width = 32;
-    isaacTexture.Height = 48;
-    isaacTexture.PSM = GS_PSM_CT32;
-    isaacTexture.ClutPSM = GS_PSM_CT32;
-    isaacTexture.Mem = (u32*)isaac_pixels;
-    isaacTexture.Clut = NULL;
-    isaacTexture.VramClut = 0;
-    isaacTexture.Filter = GS_FILTER_NEAREST;
-    isaacTexture.Delayed = GS_SETTING_OFF;
-    isaacTexture.Vram = gsKit_vram_alloc(
-        gs,
-        gsKit_texture_size(32, 48, GS_PSM_CT32),
-        GSKIT_ALLOC_USERBUFFER
-    );
-    gsKit_texture_upload(gs, &isaacTexture);
+    for (int d = 0; d < 4; d++) {
+        for (int f = 0; f < 10; f++) {
+            GSTEXTURE* texture = &isaacTextures[d][f];
+            texture->Width = 32;
+            texture->Height = 48;
+            texture->PSM = GS_PSM_CT32;
+            texture->ClutPSM = GS_PSM_CT32;
+            texture->Mem = (u32*)isaac_pixels[d][f];
+            texture->Clut = NULL;
+            texture->VramClut = 0;
+            texture->Filter = GS_FILTER_NEAREST;
+            texture->Delayed = GS_SETTING_OFF;
+            texture->Vram = gsKit_vram_alloc(
+                gs,
+                gsKit_texture_size(32, 48, GS_PSM_CT32),
+                GSKIT_ALLOC_USERBUFFER
+            );
+            gsKit_texture_upload(gs, texture);
+        }
+    }
 }
 
 void game_update(int moveX, int moveY, int fireX, int fireY) {
@@ -48,6 +59,22 @@ void game_update(int moveX, int moveY, int fireX, int fireY) {
     if (dx != 0 && dy != 0) {
         dx *= 0.7071f;
         dy *= 0.7071f;
+    }
+
+    if (moveX < 0) facing = 2;
+    else if (moveX > 0) facing = 3;
+    else if (moveY < 0) facing = 1;
+    else if (moveY > 0) facing = 0;
+
+    if (moveX != 0 || moveY != 0) {
+        walkTick++;
+        if (walkTick >= 2) {
+            walkTick = 0;
+            walkFrame = (walkFrame + 1) % 10;
+        }
+    } else {
+        walkFrame = 0;
+        walkTick = 0;
     }
 
     isaac.x += dx * isaac.speed;
@@ -97,11 +124,10 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_prim_sprite(gs, roomLeft, roomTop, roomLeft + 12, roomBottom, 2, wall);
     gsKit_prim_sprite(gs, roomRight - 12, roomTop, roomRight, roomBottom, 2, wall);
 
-    // Blend the texture's alpha channel so transparent pixels reveal the room.
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     gsKit_set_test(gs, GS_ATEST_OFF);
     gsKit_prim_sprite_texture(
-        gs, &isaacTexture,
+        gs, &isaacTextures[facing][walkFrame],
         isaac.x - 16, isaac.y - 24, 0, 0,
         isaac.x + 16, isaac.y + 24, 32, 48,
         3, GS_SETREG_RGBAQ(0x80, 0x80, 0x80, 0x80, 0)
