@@ -10,6 +10,32 @@ def rgba_to_gs(image):
         values.append(r | (g << 8) | (b << 16) | (alpha << 24))
     return values
 
+def remove_white_matte(image, threshold=242):
+    """Turn the white atlas canvas and its antialiased fringe into transparency."""
+    image = image.convert("RGBA")
+    px = image.load()
+    for y in range(image.height):
+        for x in range(image.width):
+            r, g, b, a = px[x, y]
+            if r >= threshold and g >= threshold and b >= threshold:
+                px[x, y] = (r, g, b, 0)
+            elif r >= 220 and g >= 220 and b >= 220:
+                # Fade the near-white fringe instead of leaving a pale halo.
+                strength = max(0, min(255, int((255 - min(r, g, b)) * 255 / 35)))
+                px[x, y] = (r, g, b, min(a, strength))
+    return image
+
+def remove_black_matte(image, threshold=24):
+    """Remove the black rectangle behind the supplied title logo."""
+    image = image.convert("RGBA")
+    px = image.load()
+    for y in range(image.height):
+        for x in range(image.width):
+            r, g, b, a = px[x, y]
+            if r <= threshold and g <= threshold and b <= threshold:
+                px[x, y] = (r, g, b, 0)
+    return image
+
 def write_array(out, values, indent="    "):
     for i in range(0, len(values), 8):
         out.write(indent + ", ".join("0x%08Xu" % value for value in values[i:i + 8]) + ",\n")
@@ -45,7 +71,7 @@ def crop_anm_frame(atlas, attrs):
     y = int(float(attrs.get("YCrop", 0)))
     w = int(float(attrs.get("Width", 32)))
     h = int(float(attrs.get("Height", 32)))
-    crop = atlas.crop((x, y, x + w, y + h))
+    crop = remove_white_matte(atlas.crop((x, y, x + w, y + h)))
     sx = float(attrs.get("XScale", 100))
     sy = float(attrs.get("YScale", 100))
     if sx < 0:
@@ -113,7 +139,7 @@ with open("sprite_data.h", "w") as out:
 # The source wall sheet contains the top/left wall corner in its upper-left cell.
 # Keep the floor at its native tile proportions and build four continuous wall runs.
 basement = Image.open("assets/backdrop/01_basement.png").convert("RGBA")
-floor = Image.open("assets/backdrop/01_lbasementfloor.png").convert("RGBA")
+floor = Image.open("assets/backdrop/01_lbasementfloor.png").convert("RGB").convert("RGBA")
 room = Image.new("RGBA", (512, 512), (18, 14, 15, 255))
 
 # The floor atlas is a 2x2 set of large floor tiles. Scale it once, then repeat
@@ -146,7 +172,7 @@ with open("room_data.h", "w") as out:
 
 
 # Real animated fly frames from the uploaded Repentance sprite sheet.
-flies = Image.open("assets/repentance/big_flies.png").convert("RGBA")
+flies = remove_white_matte(Image.open("assets/repentance/big_flies.png"), 238)
 if flies.size != (128, 96):
     raise SystemExit("Unexpected big_flies.png dimensions: %s" % (flies.size,))
 with open("enemy_data.h", "w") as out:
@@ -154,7 +180,7 @@ with open("enemy_data.h", "w") as out:
     out.write("static const uint32_t enemy_pixels[4][1024] __attribute__((aligned(64))) = {\n")
     for x in (0, 32, 64, 96):
         out.write("{\n")
-        write_array(out, rgba_to_gs(flies.crop((x, 0, x + 32, 32))))
+        write_array(out, rgba_to_gs(remove_white_matte(flies.crop((x, 0, x + 32, 32)), 238)))
         out.write("},\n")
     out.write("};\n#endif\n")
 
@@ -165,9 +191,9 @@ menu_bg = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
 menu_bg.alpha_composite(title.crop((0, 0, 480, 272)).resize((512, 290), NEAREST), (0, 0))
 # Keep the complete red logo and subtitle; the previous 160px crop cut it off.
 menu_logo = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
-logo_crop = logo.crop((92, 0, 380, 212))
-logo_crop.thumbnail((256, 210), NEAREST)
-menu_logo.alpha_composite(logo_crop, ((256 - logo_crop.width) // 2, 18))
+logo_crop = remove_black_matte(logo.crop((98, 0, 373, 300)))
+logo_crop.thumbnail((256, 230), NEAREST)
+menu_logo.alpha_composite(logo_crop, ((256 - logo_crop.width) // 2, 8))
 menu_prompt = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
 menu_prompt.alpha_composite(title.crop((0, 384, 156, 544)).resize((125, 128), NEAREST), (0, 0))
 with open("menu_data.h", "w") as out:
