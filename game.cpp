@@ -1,5 +1,6 @@
 #include "game.h"
 #include "sprite_data.h"
+#include "pickup_data.h"
 
 static Player isaac;
 static Tear tears[16];
@@ -7,6 +8,7 @@ static Enemy enemies[6];
 static Pickup pickups[8];
 static int coins = 0, keys = 0, bombs = 0;
 static GSTEXTURE isaacTextures[4][10];
+static GSTEXTURE pickupTextures[4];
 
 static float roomLeft, roomRight, roomTop, roomBottom;
 static int tearCooldown = 0;
@@ -81,6 +83,16 @@ void game_init(int width, int height, GSGLOBAL* gs) {
             texture->Vram = gsKit_vram_alloc(gs, gsKit_texture_size(32, 48, GS_PSM_CT32), GSKIT_ALLOC_USERBUFFER);
             gsKit_texture_upload(gs, texture);
         }
+    }
+    for (int p = 0; p < 4; p++) {
+        GSTEXTURE* texture = &pickupTextures[p];
+        texture->Width = 16; texture->Height = 16;
+        texture->PSM = GS_PSM_CT32; texture->ClutPSM = GS_PSM_CT32;
+        texture->Mem = (u32*)pickup_pixels[p]; texture->Clut = NULL;
+        texture->VramClut = 0; texture->Filter = GS_FILTER_NEAREST;
+        texture->Delayed = GS_SETTING_OFF;
+        texture->Vram = gsKit_vram_alloc(gs, gsKit_texture_size(16, 16, GS_PSM_CT32), GSKIT_ALLOC_USERBUFFER);
+        gsKit_texture_upload(gs, texture);
     }
     spawn_room();
 }
@@ -199,13 +211,16 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_prim_sprite(gs, roomLeft, (roomTop + roomBottom) * .5f - 15, roomLeft + 12, (roomTop + roomBottom) * .5f + 15, 3, doorColor);
     gsKit_prim_sprite(gs, roomRight - 12, (roomTop + roomBottom) * .5f - 15, roomRight, (roomTop + roomBottom) * .5f + 15, 3, doorColor);
 
+    gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
+    gsKit_set_test(gs, GS_ATEST_OFF);
     for (int p = 0; p < 8; p++) if (pickups[p].active) {
-        u64 pickupColor = pickups[p].type == 0 ? GS_SETREG_RGBAQ(220, 65, 85, 0x80, 0) :
-                          pickups[p].type == 1 ? GS_SETREG_RGBAQ(235, 190, 55, 0x80, 0) :
-                          pickups[p].type == 2 ? GS_SETREG_RGBAQ(100, 180, 235, 0x80, 0) :
-                                                 GS_SETREG_RGBAQ(190, 75, 65, 0x80, 0);
-        gsKit_prim_sprite(gs, pickups[p].x - 5, pickups[p].y - 5, pickups[p].x + 5, pickups[p].y + 5, 4, pickupColor);
+        gsKit_prim_sprite_texture(gs, &pickupTextures[pickups[p].type],
+            pickups[p].x - 8, pickups[p].y - 8, 0, 0,
+            pickups[p].x + 8, pickups[p].y + 8, 16, 16, 4,
+            GS_SETREG_RGBAQ(0x80, 0x80, 0x80, 0x80, 0));
     }
+    gsKit_set_test(gs, GS_ATEST_ON);
+    gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
 
     for (int e = 0; e < 6; e++) if (enemies[e].active) {
         u64 enemyColor = enemies[e].flash ? GS_SETREG_RGBAQ(255, 255, 255, 0x80, 0) : GS_SETREG_RGBAQ(170, 65, 65, 0x80, 0);
@@ -229,11 +244,16 @@ void game_draw(GSGLOBAL* gs) {
                 (isaac.health > h * 2 ? GS_SETREG_RGBAQ(205, 55, 65, 0x80, 0) : GS_SETREG_RGBAQ(55, 45, 48, 0x80, 0));
         gsKit_prim_sprite(gs, roomLeft + 8 + h * 15, roomTop + 17, roomLeft + 19 + h * 15, roomTop + 27, 7, c);
     }
-    // Compact resource counters: coin, key and bomb indicators.
+    // Original pickup atlas icons from assets/ui/hudpickups.png.
+    gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
+    gsKit_set_test(gs, GS_ATEST_OFF);
+    gsKit_prim_sprite_texture(gs, &pickupTextures[1], roomLeft + 10, roomBottom - 22, 0, 0, roomLeft + 26, roomBottom - 6, 16, 16, 8, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+    gsKit_prim_sprite_texture(gs, &pickupTextures[2], roomLeft + 48, roomBottom - 22, 0, 0, roomLeft + 64, roomBottom - 6, 16, 16, 8, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+    gsKit_prim_sprite_texture(gs, &pickupTextures[3], roomLeft + 86, roomBottom - 22, 0, 0, roomLeft + 102, roomBottom - 6, 16, 16, 8, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+    gsKit_set_test(gs, GS_ATEST_ON);
+    gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
     for (int c = 0; c < (coins > 9 ? 9 : coins); c++)
-        gsKit_prim_sprite(gs, roomLeft + 10 + c * 5, roomBottom - 22, roomLeft + 13 + c * 5, roomBottom - 18, 8, GS_SETREG_RGBAQ(235, 190, 55, 0x80, 0));
-    if (keys > 0) gsKit_prim_sprite(gs, roomLeft + 65, roomBottom - 23, roomLeft + 72, roomBottom - 16, 8, GS_SETREG_RGBAQ(100, 180, 235, 0x80, 0));
-    if (bombs > 0) gsKit_prim_sprite(gs, roomLeft + 78, roomBottom - 23, roomLeft + 85, roomBottom - 16, 8, GS_SETREG_RGBAQ(190, 75, 65, 0x80, 0));
+        gsKit_prim_sprite(gs, roomLeft + 28 + c * 3, roomBottom - 18, roomLeft + 30 + c * 3, roomBottom - 14, 8, GS_SETREG_RGBAQ(235, 190, 55, 0x80, 0));
 
     // Room number and clear indicator are represented with compact status bars.
     u64 status = roomCleared ? GS_SETREG_RGBAQ(80, 190, 95, 0x80, 0) : GS_SETREG_RGBAQ(180, 135, 65, 0x80, 0);
