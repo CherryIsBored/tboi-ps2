@@ -1,14 +1,20 @@
 from PIL import Image
-import struct
 
 source = "assets/character_001_isaac.png"
 image = Image.open(source).convert("RGBA")
 if image.size != (512, 512):
     raise SystemExit("Expected 512x512 Isaac atlas, got %s" % (image.size,))
 
-# First WalkDown body frame from 001.000_player.anm2:
-# XCrop=0, YCrop=32, Width=32, Height=32.
-frame = image.crop((0, 32, 32, 64))
+# WalkDown's body frame is the 32x32 tile at (0, 32).
+# Isaac's face is the matching first head tile at (0, 0).
+body = image.crop((0, 32, 32, 64))
+head = image.crop((0, 0, 32, 32))
+
+# Composite the head over the body, preserving the transparent pixels.
+frame = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+frame.alpha_composite(body, (0, 0))
+frame.alpha_composite(head, (0, 0))
+
 pixels = []
 for r, g, b, a in frame.getdata():
     pixels.append(r | (g << 8) | (b << 16) | (a << 24))
