@@ -28,5 +28,5 @@ jobs:
       - name: Upload ELF
         uses: actions/upload-artifact@v4
         with:
-          name: isaac-ps2
-          path: isaac-ps2.elf
+          name: ISAAC-PS2
+          path: ISAAC-PS2.ELF
