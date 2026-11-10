@@ -1,17 +1,17 @@
 
-#include <stdio.h>
 #include <gsKit.h>
 #include <dmaKit.h>
-#include <gsToolkit.h>
 #include <libpad.h>
 #include <sifrpc.h>
 #include <loadfile.h>
 
+#include "game.h"
+
 static unsigned char padBuffer[256] __attribute__((aligned(64)));
 
 int main() {
+    // Graphics initialization
     GSGLOBAL* gs = gsKit_init_global();
-    GSFONTM* font = gsKit_init_fontm();
 
     dmaKit_init(
         D_CTRL_RELE_OFF,
@@ -26,77 +26,54 @@ int main() {
 
     gsKit_init_screen(gs);
     gsKit_mode_switch(gs, GS_ONESHOT);
-    gsKit_fontm_upload(gs, font);
 
-    u64 bg = GS_SETREG_RGBAQ(15, 15, 25, 0x80, 0);
-    u64 white = GS_SETREG_RGBAQ(255, 255, 255, 0x80, 0);
-    u64 green = GS_SETREG_RGBAQ(50, 230, 100, 0x80, 0);
-    u64 red = GS_SETREG_RGBAQ(240, 60, 60, 0x80, 0);
-
+    // Controller initialization
     SifInitRpc(0);
 
-    int sio = SifLoadModule("rom0:SIO2MAN", 0, NULL);
-    int pad = SifLoadModule("rom0:PADMAN", 0, NULL);
+    SifLoadModule("rom0:SIO2MAN", 0, NULL);
+    SifLoadModule("rom0:PADMAN", 0, NULL);
 
-    int initResult = padInit(0);
-    int openResult = padPortOpen(0, 0, padBuffer);
+    padInit(0);
+
+    int padReady = padPortOpen(0, 0, padBuffer);
 
     struct padButtonStatus buttons;
 
-    int state = 0;
-    int readResult = 0;
-    unsigned short pressed = 0;
-
-    char line[100];
+    // Game initialization
+    game_init(gs->Width, gs->Height);
 
     while (1) {
-        state = padGetState(0, 0);
-        readResult = 0;
-        pressed = 0;
+        int moveX = 0;
+        int moveY = 0;
+        int fireX = 0;
+        int fireY = 0;
 
-        if (state == PAD_STATE_STABLE) {
-            readResult = padRead(0, 0, &buttons);
+        if (padReady != 0) {
+            int state = padGetState(0, 0);
 
-            if (readResult != 0) {
-                pressed = (unsigned short)(~buttons.btns);
+            if (state == PAD_STATE_STABLE) {
+                if (padRead(0, 0, &buttons) != 0) {
+                    unsigned short pressed =
+                        (unsigned short)(~buttons.btns);
+
+                    // Movement: D-pad
+                    if (pressed & PAD_LEFT)  moveX = -1;
+                    if (pressed & PAD_RIGHT) moveX = 1;
+                    if (pressed & PAD_UP)    moveY = -1;
+                    if (pressed & PAD_DOWN)  moveY = 1;
+
+                    // Shooting: face buttons
+                    if (pressed & PAD_SQUARE)   fireX = -1;
+                    if (pressed & PAD_CIRCLE)   fireX = 1;
+                    if (pressed & PAD_TRIANGLE) fireY = -1;
+                    if (pressed & PAD_CROSS)    fireY = 1;
+                }
             }
         }
 
-        gsKit_clear(gs, bg);
+        game_update(moveX, moveY, fireX, fireY);
 
-        gsKit_fontm_print_scaled(
-            gs, font, 30, 30, 2, 0.8f, white,
-            "ISAAC PS2 - PAD TEST"
-        );
-
-        sprintf(line, "SIO2MAN: %d", sio);
-        gsKit_fontm_print_scaled(gs, font, 30, 90, 2, 0.7f, white, line);
-
-        sprintf(line, "PADMAN: %d", pad);
-        gsKit_fontm_print_scaled(gs, font, 30, 125, 2, 0.7f, white, line);
-
-        sprintf(line, "padInit: %d", initResult);
-        gsKit_fontm_print_scaled(gs, font, 30, 160, 2, 0.7f, white, line);
-
-        sprintf(line, "padPortOpen: %d", openResult);
-        gsKit_fontm_print_scaled(gs, font, 30, 195, 2, 0.7f, white, line);
-
-        sprintf(line, "PAD STATE: %d", state);
-        gsKit_fontm_print_scaled(
-            gs, font, 30, 245, 2, 0.8f,
-            state == PAD_STATE_STABLE ? green : red, line
-        );
-
-        sprintf(line, "PAD READ: %d", readResult);
-        gsKit_fontm_print_scaled(gs, font, 30, 285, 2, 0.8f, white, line);
-
-        sprintf(line, "BUTTON MASK: %04X", pressed);
-        gsKit_fontm_print_scaled(gs, font, 30, 330, 2, 0.8f, white, line);
-
-        gsKit_fontm_print_scaled(
-            gs, font, 30, 390, 2, 0.7f, white,
-            "PRESS ANY BUTTON"
-        );
+        game_draw(gs);
 
         gsKit_queue_exec(gs);
         gsKit_sync_flip(gs);
