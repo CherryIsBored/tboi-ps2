@@ -276,10 +276,10 @@ tear_draw.ellipse((4, 8, 12, 14), fill=(66, 160, 255, 255),
                   outline=(20, 65, 130, 255))
 tear_draw.line((5, 8, 7, 5), fill=(220, 242, 255, 240), width=1)
 with open("tear_data.h", "w") as out:
-    out.write("#ifndef TEAR_DATA_H\\n#define TEAR_DATA_H\\n#include <stdint.h>\\n")
-    out.write("static const uint32_t tear_pixels[256] __attribute__((aligned(64))) = {\\n")
+    out.write("#ifndef TEAR_DATA_H\n#define TEAR_DATA_H\n#include <stdint.h>\n")
+    out.write("static const uint32_t tear_pixels[256] __attribute__((aligned(64))) = {\n")
     write_array(out, rgba_to_gs(tear))
-    out.write("};\\n#endif\\n")
+    out.write("};\n#endif\n")
 
 # HUD hearts from the original UI atlas.
 hearts = Image.open("ui_hearts.png").convert("RGBA")
