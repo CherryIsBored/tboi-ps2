@@ -77,10 +77,11 @@ static void spawn_room() {
 }
 
 void game_init(int width, int height, GSGLOBAL* gs) {
-    roomLeft = 28.0f;
-    roomRight = width - 28.0f;
-    roomTop = 34.0f;
-    roomBottom = height - 28.0f;
+    // Restore the original centered playfield and its visible frame.
+    roomLeft = width / 2.0f - 145.0f;
+    roomRight = width / 2.0f + 145.0f;
+    roomTop = height / 2.0f - 110.0f;
+    roomBottom = height / 2.0f + 110.0f;
 
     isaac.x = width / 2.0f;
     isaac.y = height / 2.0f;
@@ -259,6 +260,13 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_prim_sprite_texture(gs, &roomTexture, roomLeft, roomTop, 0, 0, roomRight, roomBottom, 256, 256, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
+
+    // Four-sided frame from the earlier working room, drawn over the art.
+    u64 frameColor = GS_SETREG_RGBAQ(105, 85, 85, 0x80, 0);
+    gsKit_prim_sprite(gs, roomLeft, roomTop, roomRight, roomTop + 12, 2, frameColor);
+    gsKit_prim_sprite(gs, roomLeft, roomBottom - 12, roomRight, roomBottom, 2, frameColor);
+    gsKit_prim_sprite(gs, roomLeft, roomTop, roomLeft + 12, roomBottom, 2, frameColor);
+    gsKit_prim_sprite(gs, roomRight - 12, roomTop, roomRight, roomBottom, 2, frameColor);
 
     // Door openings become visible after every enemy is defeated.
     u64 doorColor = roomCleared ? GS_SETREG_RGBAQ(80, 170, 90, 0x80, 0) : GS_SETREG_RGBAQ(45, 35, 38, 0x80, 0);
