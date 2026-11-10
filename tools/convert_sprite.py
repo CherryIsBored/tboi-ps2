@@ -18,8 +18,9 @@ frames = []
 for direction in directions:
     direction_frames = []
     for frame_index in range(10):
-        body_x = (frame_index * 32) if frame_index < 8 else ((frame_index - 8) * 32 + 192)
-        body = image.crop((body_x, direction["body_y"], body_x + 32, direction["body_y"] + 32))
+        body_x = frame_index * 32 if frame_index < 8 else (frame_index - 8) * 32
+        body_y = direction["body_y"] if frame_index < 8 else direction["body_y"] + 32
+        body = image.crop((body_x, body_y, body_x + 32, body_y + 32))
         head_x = direction["head_x"] + ((frame_index // 5) * 32)
         head = image.crop((head_x, 0, head_x + 32, 32))
         if direction["mirror"]:
