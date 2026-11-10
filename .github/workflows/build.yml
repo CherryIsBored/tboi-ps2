@@ -15,14 +15,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t isaac-ps2-builder .
-
-      - name: Compile ELF
+      - name: Compile PS2 game
         run: |
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/src" \
-            isaac-ps2-builder
+            -w /src \
+            --entrypoint /bin/bash \
+            ghcr.io/ps2dev/ps2dev:latest \
+            -lc 'export PATH="$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH"; make clean all'
 
       - name: Upload ELF
         uses: actions/upload-artifact@v4
