@@ -3,15 +3,11 @@
 #include <dmaKit.h>
 #include <libpad.h>
 #include <sifrpc.h>
+#include <loadfile.h>
 
 static char padBuffer[256] __attribute__((aligned(64)));
 
 int main() {
-    // Inicializar mando
-    SifInitRpc(0);
-    padInit(0);
-    padPortOpen(0, 0, padBuffer);
-
     // Inicializar gráficos
     GSGLOBAL* gs = gsKit_init_global();
 
@@ -29,6 +25,21 @@ int main() {
     gsKit_init_screen(gs);
     gsKit_mode_switch(gs, GS_ONESHOT);
 
+    // Inicializar comunicación con el mando
+    SifInitRpc(0);
+
+    SifLoadModule("rom0:XSIO2MAN", 0, NULL);
+    SifLoadModule("rom0:XPADMAN", 0, NULL);
+
+    int padReady = 0;
+
+    if (padInit(0) == 1) {
+        if (padPortOpen(0, 0, padBuffer) != 0) {
+            padReady = 1;
+        }
+    }
+
+    // Colores
     const u64 background = GS_SETREG_RGBAQ(20, 17, 24, 0x80, 0);
     const u64 floorColor = GS_SETREG_RGBAQ(65, 55, 65, 0x80, 0);
     const u64 wallColor = GS_SETREG_RGBAQ(105, 85, 85, 0x80, 0);
@@ -42,7 +53,6 @@ int main() {
     float top = cy - 110;
     float bottom = cy + 110;
 
-    // Posición inicial de Isaac
     float playerX = cx;
     float playerY = cy;
 
@@ -54,47 +64,38 @@ int main() {
         float dx = 0.0f;
         float dy = 0.0f;
 
-        // Leer mando cuando está listo
-        int state = padGetState(0, 0);
-
-        if (state == PAD_STATE_STABLE ||
-            state == PAD_STATE_FINDCTP1) {
+        if (padReady &&
+            padGetState(0, 0) == PAD_STATE_STABLE) {
 
             if (padRead(0, 0, &buttons) != 0) {
                 unsigned short pressed =
                     (unsigned short)(~buttons.btns);
 
-                // Cruceta
                 if (pressed & PAD_LEFT)  dx = -1.0f;
-                if (pressed & PAD_RIGHT) dx =  1.0f;
+                if (pressed & PAD_RIGHT) dx = 1.0f;
                 if (pressed & PAD_UP)    dy = -1.0f;
-                if (pressed & PAD_DOWN)  dy =  1.0f;
+                if (pressed & PAD_DOWN)  dy = 1.0f;
 
-                // Joystick izquierdo
                 if (buttons.ljoy_h < 100) dx = -1.0f;
-                if (buttons.ljoy_h > 155) dx =  1.0f;
+                if (buttons.ljoy_h > 155) dx = 1.0f;
                 if (buttons.ljoy_v < 100) dy = -1.0f;
-                if (buttons.ljoy_v > 155) dy =  1.0f;
+                if (buttons.ljoy_v > 155) dy = 1.0f;
             }
         }
 
-        // Evitar que la diagonal sea más rápida
         if (dx != 0.0f && dy != 0.0f) {
             dx *= 0.7071f;
             dy *= 0.7071f;
         }
 
-        // Movimiento
         playerX += dx * speed;
         playerY += dy * speed;
 
-        // Colisiones con las paredes
         if (playerX < left + 22) playerX = left + 22;
         if (playerX > right - 22) playerX = right - 22;
         if (playerY < top + 24) playerY = top + 24;
         if (playerY > bottom - 24) playerY = bottom - 24;
 
-        // Dibujar habitación
         gsKit_clear(gs, background);
 
         gsKit_prim_sprite(
@@ -117,15 +118,11 @@ int main() {
             gs, right - 12, top, right, bottom, 2, wallColor
         );
 
-        // Dibujar Isaac en su nueva posición
         gsKit_prim_sprite(
             gs,
-            playerX - 10,
-            playerY - 12,
-            playerX + 10,
-            playerY + 12,
-            3,
-            playerColor
+            playerX - 10, playerY - 12,
+            playerX + 10, playerY + 12,
+            3, playerColor
         );
 
         gsKit_queue_exec(gs);
