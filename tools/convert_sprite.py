@@ -275,7 +275,10 @@ with open("pickup_data.h", "w") as out:
         sheet = Image.open(path).convert("RGBA")
         if sheet.width < x + 32 or sheet.height < y + 32:
             raise SystemExit("Pickup sheet is too small: " + path)
-        icon = sheet.crop((x, y, x + 32, y + 32)).resize((16, 16), NEAREST)
+        # World pickups are individual 16x16 cells in these sheets.
+        # A 32x32 crop combines adjacent coin/key frames (the coin appears doubled).
+        cell = 32 if "heart" in path else 16
+        icon = sheet.crop((x, y, x + cell, y + cell)).resize((16, 16), NEAREST)
         out.write("{\n")
         write_array(out, rgba_to_gs(icon))
         out.write("},\n")
