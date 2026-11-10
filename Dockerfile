@@ -1,6 +1,8 @@
 
 FROM ghcr.io/ps2dev/ps2dev:latest
 
+RUN apk add --no-cache make
+
 WORKDIR /src
 
-ENTRYPOINT ["/bin/bash"]
+CMD ["make", "clean", "all"]
