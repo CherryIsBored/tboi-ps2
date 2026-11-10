@@ -59,8 +59,11 @@ static void drop_pickup(float x, float y, int seed) {
     for (int i = 0; i < 8; i++) {
         if (pickups[i].active) continue;
         pickups[i].x = x; pickups[i].y = y;
-        int roll = (seed * 7 + roomNumber * 3 + i * 5) % 10;
-        pickups[i].type = (roll < 5) ? 1 : ((roll < 7) ? 0 : ((roll < 9) ? 2 : 3));
+        // Balanced drops: every pickup type has an equal chance.
+        // Mix a fresh room RNG value with the defeated enemy so keys and bombs
+        // are not starved by the old fixed modulo pattern.
+        unsigned int roll = (room_random() + (unsigned int)(seed * 17 + roomNumber * 31)) & 3u;
+        pickups[i].type = (int)roll;
         pickups[i].active = 1;
         break;
     }
