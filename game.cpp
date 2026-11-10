@@ -314,13 +314,9 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
 
-    // Four centered exits stay visually shut until every enemy is defeated.
-    u64 doorColor = roomCleared ? GS_SETREG_RGBAQ(18, 13, 14, 0x80, 0)
-                                : GS_SETREG_RGBAQ(67, 43, 35, 0x80, 0);
-    gsKit_prim_sprite(gs, gs->Width * 0.5f - 15, roomTop - 1, gs->Width * 0.5f + 15, roomTop + 10, 2, doorColor);
-    gsKit_prim_sprite(gs, gs->Width * 0.5f - 15, roomBottom - 10, gs->Width * 0.5f + 15, roomBottom + 1, 2, doorColor);
-    gsKit_prim_sprite(gs, roomLeft - 1, gs->Height * 0.5f - 15, roomLeft + 10, gs->Height * 0.5f + 15, 2, doorColor);
-    gsKit_prim_sprite(gs, roomRight - 10, gs->Height * 0.5f - 15, roomRight + 1, gs->Height * 0.5f + 15, 2, doorColor);
+    // Doorways are part of the room texture: four cut-through arches with
+    // dark interiors, rather than flat colored bars painted over the wall.
+    // A small clear-state marker remains in the HUD to show when exits unlock.
 
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     gsKit_set_test(gs, GS_ATEST_OFF);
