@@ -463,6 +463,7 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_prim_sprite_texture(gs, &pickupTextures[3], roomLeft + 86, roomBottom - 22, 0, 0, roomLeft + 102, roomBottom - 6, 16, 16, 8, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
+    gsKit_set_test(gs, GS_ATEST_OFF);
     for (int c = 0; c < (coins > 9 ? 9 : coins); c++)
         gsKit_prim_sprite(gs, roomLeft + 28 + c * 3, roomBottom - 18, roomLeft + 30 + c * 3, roomBottom - 14, 8, GS_SETREG_RGBAQ(235, 190, 55, 0x80, 0));
     // Tiny inventory pips keep key/bomb totals visible without introducing a
@@ -475,8 +476,11 @@ void game_draw(GSGLOBAL* gs) {
         gsKit_prim_sprite(gs, roomLeft + 104 + b * 3, roomBottom - 18,
             roomLeft + 106 + b * 3, roomBottom - 13, 8,
             GS_SETREG_RGBAQ(185, 185, 195, 0x80, 0));
+    gsKit_set_test(gs, GS_ATEST_ON);
 
     // Room number and clear indicator are represented with compact status bars.
     u64 status = roomCleared ? GS_SETREG_RGBAQ(80, 190, 95, 0x80, 0) : GS_SETREG_RGBAQ(180, 135, 65, 0x80, 0);
+    gsKit_set_test(gs, GS_ATEST_OFF);
     gsKit_prim_sprite(gs, roomRight - 30, roomTop + 17, roomRight - 8, roomTop + 22, 7, status);
+    gsKit_set_test(gs, GS_ATEST_ON);
 }
