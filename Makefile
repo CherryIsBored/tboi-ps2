@@ -1,10 +1,12 @@
 
 EE_BIN = isaac-ps2.elf
 EE_OBJS = main.o
-EE_LIBS =
 
-EE_CXX = g++
-EE_CC = gcc
+EE_CXX = $(PS2DEV)/ee/bin/mips64r5900el-ps2-elf-g++
+EE_CC = $(PS2DEV)/ee/bin/mips64r5900el-ps2-elf-gcc
+
+EE_CFLAGS = -O2
+EE_CXXFLAGS = -O2 -std=c++17
 
 all: $(EE_BIN)
 
