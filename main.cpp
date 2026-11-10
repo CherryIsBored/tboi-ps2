@@ -91,7 +91,9 @@ int main() {
                     if (pressed & PAD_UP)    moveY = -1;
                     if (pressed & PAD_DOWN)  moveY = 1;
 
-                    if (pressed & PAD_START) startPressed = 1;
+                    // Any confirm/action button can leave the title screen;
+                    // some third-party pads do not report PAD_START reliably.
+                    if (pressed & (PAD_START | PAD_CROSS | PAD_CIRCLE | PAD_SQUARE | PAD_TRIANGLE)) startPressed = 1;
                     if (pressed & PAD_SQUARE)   fireX = -1;
                     if (pressed & PAD_CIRCLE)   fireX = 1;
                     if (pressed & PAD_TRIANGLE) fireY = -1;
