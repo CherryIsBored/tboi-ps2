@@ -235,14 +235,27 @@ menu_logo = Image.new("RGBA", (256, 128), (0, 0, 0, 0))
 logo_crop = remove_edge_matte(logo.crop((98, 0, 373, 140)), "black")
 logo_crop.thumbnail((256, 124), NEAREST)
 menu_logo.alpha_composite(logo_crop, ((256 - logo_crop.width) // 2, 2))
-menu_prompt = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
-menu_prompt.alpha_composite(title.crop((0, 384, 156, 544)).resize((125, 128), NEAREST), (0, 0))
+# The ANM2 title animation places the drawing at (153, 86) and alternates
+# between atlas frames x=0 and x=160. Extract the first frame only, remove
+# its black matte, then center the visible artwork by its alpha bounds. This
+# prevents the invisible left/right padding from shifting "PRESS START".
+prompt_frame = title.crop((0, 384, 156, 544))
+prompt_frame = remove_edge_matte(prompt_frame, "black")
+prompt_bounds = prompt_frame.getchannel("A").getbbox()
+if prompt_bounds:
+    prompt_frame = prompt_frame.crop(prompt_bounds)
+prompt_frame.thumbnail((120, 88), NEAREST)
+menu_prompt = Image.new("RGBA", (128, 96), (0, 0, 0, 0))
+menu_prompt.alpha_composite(
+    prompt_frame,
+    ((128 - prompt_frame.width) // 2, (96 - prompt_frame.height) // 2)
+)
 with open("menu_data.h", "w") as out:
     out.write("#ifndef MENU_DATA_H\n#define MENU_DATA_H\n#include <stdint.h>\n")
     for name, img, count in [
         ("menu_bg_pixels", menu_bg, 65536),
         ("menu_logo_pixels", menu_logo, 32768),
-        ("menu_prompt_pixels", menu_prompt, 16384),
+        ("menu_prompt_pixels", menu_prompt, 12288),
     ]:
         out.write("static const uint32_t %s[%d] __attribute__((aligned(64))) = {\n" % (name, count))
         write_array(out, rgba_to_gs(img))
@@ -278,7 +291,7 @@ with open("pickup_data.h", "w") as out:
             crop_box = (x, y, x + 32, y + 32)
         elif "pickup_002_coin" in path:
             # The coin sheet's first collectible occupies the left half.
-            crop_box = (x, y, x + 16, y + 32)
+            crop_box = (x, y, x + 16, y + 16)
         elif "pickup_003_key" in path:
             crop_box = (x, y, x + 16, y + 16)
         else:
