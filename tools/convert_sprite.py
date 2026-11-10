@@ -258,16 +258,25 @@ with open("heart_data.h", "w") as out:
     write_array(out, rgba_to_gs(heart))
     out.write("};\n#endif\n")
 
-# Original pickup icons from the HUD atlas.
-hud = Image.open("assets/ui/hudpickups.png").convert("RGBA")
-# Runtime pickup order: heart, coin, key, bomb.
-# HUD atlas positions: heart x=80, coin x=0, key x=64, bomb x=32.
-pickup_cells = [(80, 0), (0, 0), (64, 0), (32, 0)]
+# Dedicated collectible sprites, not the animated HUD counter atlas.
+# Runtime order is fixed: heart, coin, key, bomb. Each asset is an animation
+# sheet; take only its first complete 32x32 idle frame so the coin never
+# cycles through neighboring frames and the key/bomb cannot be mis-cropped.
+pickup_sources = [
+    ("assets/items/pickups/pickup_001_heart.png", (0, 0)),
+    ("assets/items/pickups/pickup_002_coin.png", (0, 0)),
+    ("assets/items/pickups/pickup_003_key.png", (0, 0)),
+    ("assets/items/pickups/bomb.png", (0, 0)),
+]
 with open("pickup_data.h", "w") as out:
     out.write("#ifndef PICKUP_DATA_H\n#define PICKUP_DATA_H\n#include <stdint.h>\n")
     out.write("static const uint32_t pickup_pixels[4][256] __attribute__((aligned(64))) = {\n")
-    for x, y in pickup_cells:
+    for path, (x, y) in pickup_sources:
+        sheet = Image.open(path).convert("RGBA")
+        if sheet.width < x + 32 or sheet.height < y + 32:
+            raise SystemExit("Pickup sheet is too small: " + path)
+        icon = sheet.crop((x, y, x + 32, y + 32)).resize((16, 16), NEAREST)
         out.write("{\n")
-        write_array(out, rgba_to_gs(hud.crop((x, y, x + 16, y + 16))))
+        write_array(out, rgba_to_gs(icon))
         out.write("},\n")
     out.write("};\n#endif\n")
