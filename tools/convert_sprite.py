@@ -99,10 +99,10 @@ side_strip = wall_strip.transpose(Image.Transpose.ROTATE_90).resize((32, 256), N
 room.alpha_composite(side_strip, (0, 0))
 room.alpha_composite(side_strip.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (224, 0))
 with open("room_data.h", "w") as out:
-    out.write("#ifndef ROOM_DATA_H\\n#define ROOM_DATA_H\\n#include <stdint.h>\\n")
-    out.write("static const uint32_t room_pixels[65536] __attribute__((aligned(64))) = {\\n")
+    out.write("#ifndef ROOM_DATA_H\n#define ROOM_DATA_H\n#include <stdint.h>\n")
+    out.write("static const uint32_t room_pixels[65536] __attribute__((aligned(64))) = {\n")
     write_array(out, rgba_to_gs(room))
-    out.write("};\\n#endif\\n")
+    out.write("};\n#endif\n")
 
 
 # Real animated fly frames from the uploaded Repentance sprite sheet.
