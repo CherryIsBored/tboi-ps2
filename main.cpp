@@ -1,9 +1,9 @@
 
-#include <iostream>
+#include <stdio.h>
 
 int main() {
-    std::cout << "ISAAC PS2 PORT" << std::endl;
-    std::cout << "Project initialized successfully." << std::endl;
+    printf("ISAAC PS2 PORT\n");
+    printf("PS2 compiler working!\n");
 
     return 0;
 }
