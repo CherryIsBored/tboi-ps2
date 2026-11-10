@@ -1,15 +1,17 @@
 
+#include <stdio.h>
 #include <gsKit.h>
 #include <dmaKit.h>
+#include <gsToolkit.h>
 #include <libpad.h>
 #include <sifrpc.h>
 #include <loadfile.h>
 
-static char padBuffer[256] __attribute__((aligned(64)));
+static unsigned char padBuffer[256] __attribute__((aligned(64)));
 
 int main() {
-    // Inicializar gráficos
     GSGLOBAL* gs = gsKit_init_global();
+    GSFONTM* font = gsKit_init_fontm();
 
     dmaKit_init(
         D_CTRL_RELE_OFF,
@@ -24,105 +26,76 @@ int main() {
 
     gsKit_init_screen(gs);
     gsKit_mode_switch(gs, GS_ONESHOT);
+    gsKit_fontm_upload(gs, font);
 
-    // Inicializar comunicación con el mando
+    u64 bg = GS_SETREG_RGBAQ(15, 15, 25, 0x80, 0);
+    u64 white = GS_SETREG_RGBAQ(255, 255, 255, 0x80, 0);
+    u64 green = GS_SETREG_RGBAQ(50, 230, 100, 0x80, 0);
+    u64 red = GS_SETREG_RGBAQ(240, 60, 60, 0x80, 0);
+
     SifInitRpc(0);
 
-    SifLoadModule("rom0:XSIO2MAN", 0, NULL);
-    SifLoadModule("rom0:XPADMAN", 0, NULL);
+    int sio = SifLoadModule("rom0:SIO2MAN", 0, NULL);
+    int pad = SifLoadModule("rom0:PADMAN", 0, NULL);
 
-    int padReady = 0;
-
-    if (padInit(0) == 1) {
-        if (padPortOpen(0, 0, padBuffer) != 0) {
-            padReady = 1;
-        }
-    }
-
-    // Colores
-    const u64 background = GS_SETREG_RGBAQ(20, 17, 24, 0x80, 0);
-    const u64 floorColor = GS_SETREG_RGBAQ(65, 55, 65, 0x80, 0);
-    const u64 wallColor = GS_SETREG_RGBAQ(105, 85, 85, 0x80, 0);
-    const u64 playerColor = GS_SETREG_RGBAQ(220, 205, 190, 0x80, 0);
-
-    float cx = gs->Width / 2.0f;
-    float cy = gs->Height / 2.0f;
-
-    float left = cx - 145;
-    float right = cx + 145;
-    float top = cy - 110;
-    float bottom = cy + 110;
-
-    float playerX = cx;
-    float playerY = cy;
-
-    const float speed = 2.2f;
+    int initResult = padInit(0);
+    int openResult = padPortOpen(0, 0, padBuffer);
 
     struct padButtonStatus buttons;
 
+    int state = 0;
+    int readResult = 0;
+    unsigned short pressed = 0;
+
+    char line[100];
+
     while (1) {
-        float dx = 0.0f;
-        float dy = 0.0f;
+        state = padGetState(0, 0);
+        readResult = 0;
+        pressed = 0;
 
-        if (padReady &&
-            padGetState(0, 0) == PAD_STATE_STABLE) {
+        if (state == PAD_STATE_STABLE) {
+            readResult = padRead(0, 0, &buttons);
 
-            if (padRead(0, 0, &buttons) != 0) {
-                unsigned short pressed =
-                    (unsigned short)(~buttons.btns);
-
-                if (pressed & PAD_LEFT)  dx = -1.0f;
-                if (pressed & PAD_RIGHT) dx = 1.0f;
-                if (pressed & PAD_UP)    dy = -1.0f;
-                if (pressed & PAD_DOWN)  dy = 1.0f;
-
-                if (buttons.ljoy_h < 100) dx = -1.0f;
-                if (buttons.ljoy_h > 155) dx = 1.0f;
-                if (buttons.ljoy_v < 100) dy = -1.0f;
-                if (buttons.ljoy_v > 155) dy = 1.0f;
+            if (readResult != 0) {
+                pressed = (unsigned short)(~buttons.btns);
             }
         }
 
-        if (dx != 0.0f && dy != 0.0f) {
-            dx *= 0.7071f;
-            dy *= 0.7071f;
-        }
+        gsKit_clear(gs, bg);
 
-        playerX += dx * speed;
-        playerY += dy * speed;
-
-        if (playerX < left + 22) playerX = left + 22;
-        if (playerX > right - 22) playerX = right - 22;
-        if (playerY < top + 24) playerY = top + 24;
-        if (playerY > bottom - 24) playerY = bottom - 24;
-
-        gsKit_clear(gs, background);
-
-        gsKit_prim_sprite(
-            gs, left, top, right, bottom, 1, floorColor
+        gsKit_fontm_print_scaled(
+            gs, font, 30, 30, 2, 0.8f, white,
+            "ISAAC PS2 - PAD TEST"
         );
 
-        gsKit_prim_sprite(
-            gs, left, top, right, top + 12, 2, wallColor
+        sprintf(line, "SIO2MAN: %d", sio);
+        gsKit_fontm_print_scaled(gs, font, 30, 90, 2, 0.7f, white, line);
+
+        sprintf(line, "PADMAN: %d", pad);
+        gsKit_fontm_print_scaled(gs, font, 30, 125, 2, 0.7f, white, line);
+
+        sprintf(line, "padInit: %d", initResult);
+        gsKit_fontm_print_scaled(gs, font, 30, 160, 2, 0.7f, white, line);
+
+        sprintf(line, "padPortOpen: %d", openResult);
+        gsKit_fontm_print_scaled(gs, font, 30, 195, 2, 0.7f, white, line);
+
+        sprintf(line, "PAD STATE: %d", state);
+        gsKit_fontm_print_scaled(
+            gs, font, 30, 245, 2, 0.8f,
+            state == PAD_STATE_STABLE ? green : red, line
         );
 
-        gsKit_prim_sprite(
-            gs, left, bottom - 12, right, bottom, 2, wallColor
-        );
+        sprintf(line, "PAD READ: %d", readResult);
+        gsKit_fontm_print_scaled(gs, font, 30, 285, 2, 0.8f, white, line);
 
-        gsKit_prim_sprite(
-            gs, left, top, left + 12, bottom, 2, wallColor
-        );
+        sprintf(line, "BUTTON MASK: %04X", pressed);
+        gsKit_fontm_print_scaled(gs, font, 30, 330, 2, 0.8f, white, line);
 
-        gsKit_prim_sprite(
-            gs, right - 12, top, right, bottom, 2, wallColor
-        );
-
-        gsKit_prim_sprite(
-            gs,
-            playerX - 10, playerY - 12,
-            playerX + 10, playerY + 12,
-            3, playerColor
+        gsKit_fontm_print_scaled(
+            gs, font, 30, 390, 2, 0.7f, white,
+            "PRESS ANY BUTTON"
         );
 
         gsKit_queue_exec(gs);
