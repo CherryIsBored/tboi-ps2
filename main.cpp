@@ -11,6 +11,15 @@ static unsigned char padBuffer[256] __attribute__((aligned(64)));
 int main() {
     GSGLOBAL* gs = gsKit_init_global();
 
+    // The GS has only 4 MB of VRAM. gsKit defaults to CT24 + double
+    // buffering + a 32-bit Z buffer, which consumes almost all of it before
+    // the game's textures are uploaded. Use a 16-bit framebuffer and disable
+    // the depth buffer (the game is strictly 2D and draws in explicit order).
+    gs->PSM = GS_PSM_CT16;
+    gs->PSMZ = GS_PSMZ_16;
+    gs->ZBuffering = GS_SETTING_OFF;
+    gs->DoubleBuffering = GS_SETTING_ON;
+
     dmaKit_init(
         D_CTRL_RELE_OFF,
         D_CTRL_MFD_OFF,
