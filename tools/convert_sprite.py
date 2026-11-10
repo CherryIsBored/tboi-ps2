@@ -1,93 +1,159 @@
 from PIL import Image
+import xml.etree.ElementTree as ET
 
-source = "assets/characters/character_001_isaac.png"
-image = Image.open(source).convert("RGBA")
-if image.size != (512, 512):
-    raise SystemExit("Expected 512x512 Isaac atlas, got %s" % (image.size,))
+NEAREST = Image.Resampling.NEAREST
 
-# ANM2 WalkDown/WalkUp use row 32; WalkLeft/WalkRight use row 64.
-# Head animations: down=(0,0), up=(128,0), side=(64,0).
+def rgba_to_gs(image):
+    values = []
+    for r, g, b, a in image.convert("RGBA").getdata():
+        alpha = (a * 128 + 127) // 255
+        values.append(r | (g << 8) | (b << 16) | (alpha << 24))
+    return values
+
+def write_array(out, values, indent="    "):
+    for i in range(0, len(values), 8):
+        out.write(indent + ", ".join("0x%08Xu" % value for value in values[i:i + 8]) + ",\n")
+
+def layer_frames(root, animation_name, layer_id):
+    animation = root.find(".//Animation[@Name='%s']" % animation_name)
+    if animation is None:
+        raise SystemExit("Missing animation in player ANM2: " + animation_name)
+    layer = animation.find("./LayerAnimations/LayerAnimation[@LayerId='%s']" % layer_id)
+    if layer is None:
+        raise SystemExit("Missing layer %s in animation %s" % (layer_id, animation_name))
+    return [frame.attrib for frame in layer.findall("Frame")]
+
+def crop_anm_frame(atlas, attrs):
+    x = int(float(attrs.get("XCrop", 0)))
+    y = int(float(attrs.get("YCrop", 0)))
+    w = int(float(attrs.get("Width", 32)))
+    h = int(float(attrs.get("Height", 32)))
+    crop = atlas.crop((x, y, x + w, y + h)).resize((32, 32), NEAREST)
+    if float(attrs.get("XScale", 100)) < 0:
+        crop = crop.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    if float(attrs.get("YScale", 100)) < 0:
+        crop = crop.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    return crop
+
+# Isaac: use the actual Walk and Head frame rectangles from the uploaded ANM2.
+atlas = Image.open("assets/characters/character_001_isaac.png").convert("RGBA")
+anm = ET.parse("assets/gfx/001.000_player.anm2").getroot()
 directions = [
-    {"body_y": 32, "head_x": 0, "mirror": False},   # down
-    {"body_y": 32, "head_x": 128, "mirror": False}, # up
-    {"body_y": 64, "head_x": 64, "mirror": True},   # left
-    {"body_y": 64, "head_x": 64, "mirror": False},  # right
+    ("WalkDown", "HeadDown"),
+    ("WalkUp", "HeadUp"),
+    ("WalkLeft", "HeadLeft"),
+    ("WalkRight", "HeadRight"),
 ]
-
-frames = []
-for direction in directions:
-    direction_frames = []
+walk_frames = []
+shoot_frames = []
+for walk_name, head_name in directions:
+    bodies = [crop_anm_frame(atlas, a) for a in layer_frames(anm, walk_name, 1)]
+    heads = [crop_anm_frame(atlas, a) for a in layer_frames(anm, head_name, 4)]
+    if not bodies or not heads:
+        raise SystemExit("Empty Isaac animation: " + walk_name + " / " + head_name)
+    normal_head = heads[0]
+    shooting_head = heads[1] if len(heads) > 1 else heads[0]
+    direction_walk = []
     for frame_index in range(10):
-        body_x = frame_index * 32 if frame_index < 8 else (frame_index - 8) * 32
-        body_y = direction["body_y"] if frame_index < 8 else direction["body_y"] + 32
-        body = image.crop((body_x, body_y, body_x + 32, body_y + 32))
-        head_x = direction["head_x"] + ((frame_index // 5) * 32)
-        head = image.crop((head_x, 0, head_x + 32, 32))
-        if direction["mirror"]:
-            body = body.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-            head = head.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-
+        body = bodies[frame_index % len(bodies)]
         frame = Image.new("RGBA", (32, 48), (0, 0, 0, 0))
         frame.alpha_composite(body, (0, 8))
-        # Keep the head close to the body; raised two pixels from the original crop.
-        frame.alpha_composite(head, (0, -2))
-
-        pixels = []
-        for r, g, b, a in frame.getdata():
-            gs_alpha = (a * 128 + 127) // 255
-            pixels.append(r | (g << 8) | (b << 16) | (gs_alpha << 24))
-        direction_frames.append(pixels)
-    frames.append(direction_frames)
+        frame.alpha_composite(normal_head, (0, -2))
+        direction_walk.append(rgba_to_gs(frame))
+    shoot = Image.new("RGBA", (32, 48), (0, 0, 0, 0))
+    shoot.alpha_composite(bodies[0], (0, 8))
+    shoot.alpha_composite(shooting_head, (0, -2))
+    walk_frames.append(direction_walk)
+    shoot_frames.append(rgba_to_gs(shoot))
 
 with open("sprite_data.h", "w") as out:
-    out.write("#ifndef SPRITE_DATA_H\n#define SPRITE_DATA_H\n")
-    out.write("#include <stdint.h>\n")
+    out.write("#ifndef SPRITE_DATA_H\n#define SPRITE_DATA_H\n#include <stdint.h>\n")
     out.write("static const uint32_t isaac_pixels[4][10][1536] __attribute__((aligned(64))) = {\n")
-    for direction_frames in frames:
+    for direction in walk_frames:
         out.write("{\n")
-        for pixels in direction_frames:
+        for frame in direction:
             out.write("{\n")
-            for i in range(0, len(pixels), 8):
-                out.write("    " + ", ".join("0x%08Xu" % p for p in pixels[i:i+8]) + ",\n")
+            write_array(out, frame)
             out.write("},\n")
+        out.write("},\n")
+    out.write("};\n")
+    out.write("static const uint32_t isaac_shoot_pixels[4][1536] __attribute__((aligned(64))) = {\n")
+    for frame in shoot_frames:
+        out.write("{\n")
+        write_array(out, frame)
         out.write("},\n")
     out.write("};\n#endif\n")
 
-# Extract real HUD pickup sprites using the crop rectangles documented by
-# assets/ui/hudpickups.anm2. The atlas uses 16x16 frames.
-hud = Image.open("assets/ui/hudpickups.png").convert("RGBA")
-if hud.width < 96 or hud.height < 16:
-    raise SystemExit("Unexpected hudpickups.png dimensions: %s" % (hud.size,))
+# Original Basement room: tiled floor plus wall strips cut from the actual room atlas.
+basement = Image.open("assets/backdrop/01_basement.png").convert("RGBA")
+floor = Image.open("assets/backdrop/01_lbasementfloor.png").convert("RGBA")
+room = Image.new("RGBA", (512, 512), (0, 0, 0, 255))
+floor_tile = floor.resize((512, 182), NEAREST)
+for y in (64, 246, 428):
+    room.alpha_composite(floor_tile, (0, y))
+wall_strip = basement.crop((0, 0, 240, 48)).resize((512, 64), NEAREST)
+room.alpha_composite(wall_strip, (0, 0))
+room.alpha_composite(wall_strip.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 448))
+side_strip = wall_strip.transpose(Image.Transpose.ROTATE_90).resize((64, 512), NEAREST)
+room.alpha_composite(side_strip, (0, 0))
+room.alpha_composite(side_strip.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (448, 0))
+with open("room_data.h", "w") as out:
+    out.write("#ifndef ROOM_DATA_H\n#define ROOM_DATA_H\n#include <stdint.h>\n")
+    out.write("static const uint32_t room_pixels[262144] __attribute__((aligned(64))) = {\n")
+    write_array(out, rgba_to_gs(room))
+    out.write("};\n#endif\n")
 
-# Heart, coin, key and bomb icon cells from the original HUD atlas.
+# Real animated fly frames from the uploaded Repentance sprite sheet.
+flies = Image.open("assets/repentance/big_flies.png").convert("RGBA")
+if flies.size != (128, 96):
+    raise SystemExit("Unexpected big_flies.png dimensions: %s" % (flies.size,))
+with open("enemy_data.h", "w") as out:
+    out.write("#ifndef ENEMY_DATA_H\n#define ENEMY_DATA_H\n#include <stdint.h>\n")
+    out.write("static const uint32_t enemy_pixels[4][1024] __attribute__((aligned(64))) = {\n")
+    for x in (0, 32, 64, 96):
+        out.write("{\n")
+        write_array(out, rgba_to_gs(flies.crop((x, 0, x + 32, 32))))
+        out.write("},\n")
+    out.write("};\n#endif\n")
+
+# Original title screen: paper background, Isaac logo and Press Start drawing.
+title = Image.open("assets/main menu/titlemenu.png").convert("RGBA")
+logo = Image.open("assets/main menu/logo.png").convert("RGBA")
+menu_bg = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+menu_bg.alpha_composite(title.crop((0, 0, 480, 272)), (0, 0))
+menu_logo = Image.new("RGBA", (512, 256), (0, 0, 0, 0))
+menu_logo.alpha_composite(logo.crop((0, 0, 480, 160)), (0, 0))
+menu_prompt = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+menu_prompt.alpha_composite(title.crop((0, 384, 156, 160)), (0, 0))
+with open("menu_data.h", "w") as out:
+    out.write("#ifndef MENU_DATA_H\n#define MENU_DATA_H\n#include <stdint.h>\n")
+    for name, img, count in [
+        ("menu_bg_pixels", menu_bg, 262144),
+        ("menu_logo_pixels", menu_logo, 131072),
+        ("menu_prompt_pixels", menu_prompt, 65536),
+    ]:
+        out.write("static const uint32_t %s[%d] __attribute__((aligned(64))) = {\n" % (name, count))
+        write_array(out, rgba_to_gs(img))
+        out.write("};\n")
+    out.write("#endif\n")
+
+# HUD hearts from the original UI atlas.
+hearts = Image.open("ui_hearts.png").convert("RGBA")
+heart = hearts.crop((0, 0, 16, 16))
+with open("heart_data.h", "w") as out:
+    out.write("#ifndef HEART_DATA_H\n#define HEART_DATA_H\n#include <stdint.h>\n")
+    out.write("static const uint32_t heart_pixels[256] __attribute__((aligned(64))) = {\n")
+    write_array(out, rgba_to_gs(heart))
+    out.write("};\n#endif\n")
+
+# Original pickup icons from the HUD atlas.
+hud = Image.open("assets/ui/hudpickups.png").convert("RGBA")
 pickup_cells = [(0, 0), (32, 0), (64, 0), (80, 0)]
 with open("pickup_data.h", "w") as out:
     out.write("#ifndef PICKUP_DATA_H\n#define PICKUP_DATA_H\n#include <stdint.h>\n")
     out.write("static const uint32_t pickup_pixels[4][256] __attribute__((aligned(64))) = {\n")
     for x, y in pickup_cells:
-        crop = hud.crop((x, y, x + 16, y + 16))
         out.write("{\n")
-        values = []
-        for r, g, b, a in crop.getdata():
-            gs_alpha = (a * 128 + 127) // 255
-            values.append(r | (g << 8) | (b << 16) | (gs_alpha << 24))
-        for i in range(0, len(values), 8):
-            out.write("    " + ", ".join("0x%08Xu" % v for v in values[i:i+8]) + ",\n")
+        write_array(out, rgba_to_gs(hud.crop((x, y, x + 16, y + 16))))
         out.write("},\n")
-    out.write("};\n#endif\n")
-
-
-# Convert the original Basement floor into a PS2-friendly 256x256 CT32 texture.
-floor_image = Image.open("assets/backdrop/01_lbasementfloor.png").convert("RGBA")
-floor_image = floor_image.resize((256, 256), Image.Resampling.NEAREST)
-floor_values = []
-for r, g, b, a in floor_image.getdata():
-    gs_alpha = (a * 128 + 127) // 255
-    floor_values.append(r | (g << 8) | (b << 16) | (gs_alpha << 24))
-
-with open("floor_data.h", "w") as out:
-    out.write("#ifndef FLOOR_DATA_H\n#define FLOOR_DATA_H\n#include <stdint.h>\n")
-    out.write("static const uint32_t floor_pixels[65536] __attribute__((aligned(64))) = {\n")
-    for i in range(0, len(floor_values), 8):
-        out.write("    " + ", ".join("0x%08Xu" % v for v in floor_values[i:i+8]) + ",\n")
     out.write("};\n#endif\n")
