@@ -1,6 +1,6 @@
 from PIL import Image
 
-source = "assets/character_001_isaac.png"
+source = "assets/characters/character_001_isaac.png"
 image = Image.open(source).convert("RGBA")
 if image.size != (512, 512):
     raise SystemExit("Expected 512x512 Isaac atlas, got %s" % (image.size,))
