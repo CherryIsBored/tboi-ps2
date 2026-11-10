@@ -33,6 +33,11 @@ static int gameStarted = 0;
 static int shootTimer = 0;
 static int menuTick = 0;
 static int enemyAnimTick = 0;
+static unsigned int roomRng = 0x41C64E6Du;
+static unsigned int room_random() {
+    roomRng = roomRng * 1664525u + 1013904223u;
+    return roomRng;
+}
 
 static float absf(float v) { return v < 0.0f ? -v : v; }
 
@@ -62,15 +67,25 @@ static void drop_pickup(float x, float y, int seed) {
 }
 
 static void spawn_room() {
+    // Mirrors the original room-reset lifecycle: clear old entities, then populate.
     for (int i = 0; i < 6; i++) enemies[i].active = 0;
-    int count = 2 + (roomNumber % 3);
+    for (int i = 0; i < 16; i++) tears[i].active = 0;
+    for (int i = 0; i < 8; i++) pickups[i].active = 0;
+    roomRng ^= (unsigned int)(roomNumber * 0x45D9F3Bu);
+    int count = 2 + (int)(room_random() % 3u);
     enemiesRemaining = count;
     roomCleared = 0;
     for (int i = 0; i < count; i++) {
-        enemies[i].x = roomLeft + 65.0f + (float)((i * 83 + roomNumber * 29) % 210);
-        enemies[i].y = roomTop + 55.0f + (float)((i * 61 + roomNumber * 47) % 150);
+        float x = roomLeft + 42.0f + (float)(room_random() % 207u);
+        float y = roomTop + 38.0f + (float)(room_random() % 145u);
+        if (absf(x - isaac.x) < 48.0f && absf(y - isaac.y) < 48.0f) {
+            x = (x < isaac.x) ? roomLeft + 48.0f : roomRight - 48.0f;
+            y = (y < isaac.y) ? roomTop + 42.0f : roomBottom - 42.0f;
+        }
+        enemies[i].x = x;
+        enemies[i].y = y;
         enemies[i].hp = 2 + (roomNumber > 3 ? 1 : 0);
-        enemies[i].speed = 0.42f + (float)(roomNumber % 3) * 0.08f;
+        enemies[i].speed = 0.48f + (float)(room_random() % 25u) * 0.01f;
         enemies[i].active = 1;
         enemies[i].flash = 0;
     }
@@ -86,12 +101,14 @@ void game_init(int width, int height, GSGLOBAL* gs) {
     isaac.x = width / 2.0f;
     isaac.y = height / 2.0f;
     isaac.speed = 2.5f;
+    isaac.vx = isaac.vy = 0.0f;
     isaac.health = 6;
     tearCooldown = damageCooldown = 0;
     coins = keys = bombs = 0;
     for (int i = 0; i < 8; i++) pickups[i].active = 0;
     facing = walkFrame = walkTick = 0;
     roomNumber = 1;
+    roomRng = 0x41C64E6Du;
     hitFlash = 0;
     gameStarted = 0;
     shootTimer = 0;
@@ -150,28 +167,54 @@ void game_update(int moveX, int moveY, int fireX, int fireY, int startPressed) {
         if (shootTimer == 0 && ++walkTick >= 2) { walkTick = 0; walkFrame = (walkFrame + 1) % 10; }
     } else if (shootTimer == 0) { walkFrame = 0; walkTick = 0; }
 
-    isaac.x += dx * isaac.speed;
-    isaac.y += dy * isaac.speed;
-    if (isaac.x < roomLeft + 20) isaac.x = roomLeft + 20;
-    if (isaac.x > roomRight - 20) isaac.x = roomRight - 20;
-    if (isaac.y < roomTop + 20) isaac.y = roomTop + 20;
-    if (isaac.y > roomBottom - 20) isaac.y = roomBottom - 20;
+    // Preserve momentum instead of snapping to the input direction each frame.
+    isaac.vx = isaac.vx * 0.72f + dx * isaac.speed * 0.28f;
+    isaac.vy = isaac.vy * 0.72f + dy * isaac.speed * 0.28f;
+    if (!moveX) isaac.vx *= 0.82f;
+    if (!moveY) isaac.vy *= 0.82f;
+    isaac.x += isaac.vx;
+    isaac.y += isaac.vy;
+    if (isaac.x < roomLeft + 20) { isaac.x = roomLeft + 20; isaac.vx = 0; }
+    if (isaac.x > roomRight - 20) { isaac.x = roomRight - 20; isaac.vx = 0; }
+    if (isaac.y < roomTop + 20) { isaac.y = roomTop + 20; isaac.vy = 0; }
+    if (isaac.y > roomBottom - 20) { isaac.y = roomBottom - 20; isaac.vy = 0; }
 
     if (tearCooldown > 0) tearCooldown--;
     if ((fireX || fireY) && tearCooldown == 0) {
+        // Port of plff(): normalize aim, inherit part of Isaac's velocity,
+        // and offset the tear perpendicular to its trajectory.
+        float fx = (float)fireX;
+        float fy = (float)fireY;
+        float aimLen = absf(fx) + absf(fy);
+        if (aimLen > 0.0f) {
+            fx = fx / aimLen * 10.0f;
+            fy = fy / aimLen * 10.0f;
+        }
+        float shotX = fx + isaac.vx * 0.6f;
+        float shotY = fy + isaac.vy * 0.6f;
+        float shotLen = absf(shotX) + absf(shotY);
+        if (shotLen < 10.0f && shotLen > 0.01f) {
+            shotX *= 10.0f / shotLen;
+            shotY *= 10.0f / shotLen;
+        }
         for (int i = 0; i < 16; i++) if (!tears[i].active) {
-            tears[i].x = isaac.x; tears[i].y = isaac.y;
-            float fx = (float)fireX, fy = (float)fireY;
-            if (fx != 0.0f && fy != 0.0f) { fx *= 0.7071f; fy *= 0.7071f; }
-            tears[i].vx = fx * 6.0f; tears[i].vy = fy * 6.0f;
-            tears[i].active = 1; tearCooldown = 12; break;
+            tears[i].x = isaac.x - shotY * 0.4f;
+            tears[i].y = isaac.y + shotX * 0.4f;
+            tears[i].vx = shotX;
+            tears[i].vy = shotY;
+            tears[i].life = 75;
+            tears[i].active = 1;
+            tearCooldown = 10;
+            break;
         }
     }
 
     for (int i = 0; i < 16; i++) {
         if (!tears[i].active) continue;
-        tears[i].x += tears[i].vx; tears[i].y += tears[i].vy;
-        if (tears[i].x < roomLeft + 12 || tears[i].x > roomRight - 12 ||
+        tears[i].x += tears[i].vx;
+        tears[i].y += tears[i].vy;
+        if (tears[i].life > 0) tears[i].life--;
+        if (tears[i].life <= 0 || tears[i].x < roomLeft + 12 || tears[i].x > roomRight - 12 ||
             tears[i].y < roomTop + 12 || tears[i].y > roomBottom - 12) tears[i].active = 0;
         for (int e = 0; e < 6 && tears[i].active; e++) {
             if (!enemies[e].active) continue;
@@ -204,10 +247,11 @@ void game_update(int moveX, int moveY, int fireX, int fireY, int startPressed) {
         if (!enemies[e].active) continue;
         float ex = isaac.x - enemies[e].x;
         float ey = isaac.y - enemies[e].y;
-        float len = absf(ex) + absf(ey);
-        if (len > 0.1f) {
-            enemies[e].x += (ex / len) * enemies[e].speed;
-            enemies[e].y += (ey / len) * enemies[e].speed;
+        float len2 = ex * ex + ey * ey;
+        if (len2 > 1.0f) {
+            float invLen = 1.0f / __builtin_sqrtf(len2);
+            enemies[e].x += ex * invLen * enemies[e].speed;
+            enemies[e].y += ey * invLen * enemies[e].speed;
         }
         if (enemies[e].flash > 0) enemies[e].flash--;
         if (absf(isaac.x - enemies[e].x) < 20 && absf(isaac.y - enemies[e].y) < 20 && damageCooldown == 0) {
@@ -221,14 +265,23 @@ void game_update(int moveX, int moveY, int fireX, int fireY, int startPressed) {
     if (damageCooldown > 0) damageCooldown--;
     if (hitFlash > 0) hitFlash--;
 
-    // Once the room is clear, touching a doorway advances to the next room.
+    // Advance only through one of the four centered doorways, and only after clearing.
     if (roomCleared) {
-        int atDoor = (isaac.x < roomLeft + 25 || isaac.x > roomRight - 25 ||
-                      isaac.y < roomTop + 25 || isaac.y > roomBottom - 25);
-        if (atDoor) {
+        int nextRoom = 0;
+        float centerX = (roomLeft + roomRight) * 0.5f;
+        float centerY = (roomTop + roomBottom) * 0.5f;
+        if (isaac.y < roomTop + 25.0f && absf(isaac.x - centerX) < 22.0f) {
+            nextRoom = 1; isaac.y = roomBottom - 34.0f;
+        } else if (isaac.y > roomBottom - 25.0f && absf(isaac.x - centerX) < 22.0f) {
+            nextRoom = 1; isaac.y = roomTop + 34.0f;
+        } else if (isaac.x < roomLeft + 25.0f && absf(isaac.y - centerY) < 22.0f) {
+            nextRoom = 1; isaac.x = roomRight - 34.0f;
+        } else if (isaac.x > roomRight - 25.0f && absf(isaac.y - centerY) < 22.0f) {
+            nextRoom = 1; isaac.x = roomLeft + 34.0f;
+        }
+        if (nextRoom) {
             roomNumber++;
-            isaac.x = (roomLeft + roomRight) * 0.5f;
-            isaac.y = (roomTop + roomBottom) * 0.5f;
+            isaac.vx = isaac.vy = 0.0f;
             spawn_room();
         }
     }
@@ -261,8 +314,13 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
 
-    // The room texture already contains the original Basement wall frame.
-    // Do not paint flat rectangles over the artwork: keep its stone edges intact.
+    // Four centered exits stay visually shut until every enemy is defeated.
+    u64 doorColor = roomCleared ? GS_SETREG_RGBAQ(18, 13, 14, 0x80, 0)
+                                : GS_SETREG_RGBAQ(67, 43, 35, 0x80, 0);
+    gsKit_prim_sprite(gs, gs->Width * 0.5f - 15, roomTop - 1, gs->Width * 0.5f + 15, roomTop + 10, 2, doorColor);
+    gsKit_prim_sprite(gs, gs->Width * 0.5f - 15, roomBottom - 10, gs->Width * 0.5f + 15, roomBottom + 1, 2, doorColor);
+    gsKit_prim_sprite(gs, roomLeft - 1, gs->Height * 0.5f - 15, roomLeft + 10, gs->Height * 0.5f + 15, 2, doorColor);
+    gsKit_prim_sprite(gs, roomRight - 10, gs->Height * 0.5f - 15, roomRight + 1, gs->Height * 0.5f + 15, 2, doorColor);
 
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     gsKit_set_test(gs, GS_ATEST_OFF);
