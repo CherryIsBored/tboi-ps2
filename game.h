@@ -5,11 +5,13 @@
 
 struct Player {
     float x, y, speed;
+    float vx, vy;
     int health;
 };
 
 struct Tear {
     float x, y, vx, vy;
+    int life;
     int active;
 };
 
