@@ -196,12 +196,38 @@ room.alpha_composite(top_wall.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (40, 2
 room.alpha_composite(left_wall, (0, 40))
 room.alpha_composite(left_wall.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (216, 40))
 
-# Rebuild all four corners from the matching original wall corner tile.
-corner = basement.crop((0, 0, 52, 52)).resize((40, 40), NEAREST)
+# Rebuild all four corners from the complete original corner tile.
+# The atlas corner is a 260x156 cell; the old 52x52 crop only sampled a
+# tiny patch of brickwork and caused visibly mismatched seams.
+corner = basement.crop((0, 0, 260, 156)).resize((128, 80), NEAREST)
 room.alpha_composite(corner, (0, 0))
-room.alpha_composite(corner.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (216, 0))
-room.alpha_composite(corner.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 216))
-room.alpha_composite(corner.transpose(Image.Transpose.ROTATE_180), (216, 216))
+room.alpha_composite(corner.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (128, 0))
+room.alpha_composite(corner.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 176))
+room.alpha_composite(corner.transpose(Image.Transpose.ROTATE_180), (128, 176))
+
+# Cut four real openings through the wall ring. Extend the existing floor
+# texture to each threshold, then add a dark arched tunnel with a brick rim.
+# This is deliberately baked into the room texture (no extra GS texture).
+from PIL import ImageDraw
+for src, dst in [
+    ((112, 40, 144, 80), (112, 0)),
+    ((112, 176, 144, 216), (112, 216)),
+    ((40, 112, 80, 144), (0, 112)),
+    ((176, 112, 216, 144), (216, 112)),
+]:
+    room.alpha_composite(room.crop(src), dst)
+
+door = Image.new("RGBA", (40, 52), (0, 0, 0, 0))
+draw = ImageDraw.Draw(door)
+draw.ellipse((0, 0, 39, 38), fill=(66, 42, 32, 255))
+draw.rectangle((0, 18, 39, 52), fill=(66, 42, 32, 255))
+draw.ellipse((5, 5, 34, 33), fill=(9, 7, 9, 255))
+draw.rectangle((5, 20, 34, 52), fill=(9, 7, 9, 255))
+room.alpha_composite(door, (108, -12))
+room.alpha_composite(door.transpose(Image.Transpose.ROTATE_180), (108, 216))
+room.alpha_composite(door.transpose(Image.Transpose.ROTATE_270), (-12, 108))
+room.alpha_composite(door.transpose(Image.Transpose.ROTATE_90), (216, 108))
+
 with open("room_data.h", "w") as out:
     out.write("#ifndef ROOM_DATA_H\n#define ROOM_DATA_H\n#include <stdint.h>\n")
     out.write("static const uint32_t room_pixels[65536] __attribute__((aligned(64))) = {\n")
