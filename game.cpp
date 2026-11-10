@@ -1,17 +1,17 @@
-
 #include "game.h"
+#include "sprite_data.h"
 
 static Player isaac;
 static Tear tears[16];
+static GSTEXTURE isaacTexture;
 
 static float roomLeft;
 static float roomRight;
 static float roomTop;
 static float roomBottom;
-
 static int tearCooldown = 0;
 
-void game_init(int width, int height) {
+void game_init(int width, int height, GSGLOBAL* gs) {
     roomLeft = width / 2.0f - 145.0f;
     roomRight = width / 2.0f + 145.0f;
     roomTop = height / 2.0f - 110.0f;
@@ -21,12 +21,26 @@ void game_init(int width, int height) {
     isaac.y = height / 2.0f;
     isaac.speed = 2.5f;
     isaac.health = 6;
-
     tearCooldown = 0;
 
-    for (int i = 0; i < 16; i++) {
-        tears[i].active = 0;
-    }
+    for (int i = 0; i < 16; i++) tears[i].active = 0;
+
+    // The sprite is embedded in the ELF by tools/convert_sprite.py.
+    isaacTexture.Width = 32;
+    isaacTexture.Height = 32;
+    isaacTexture.PSM = GS_PSM_CT32;
+    isaacTexture.ClutPSM = GS_PSM_CT32;
+    isaacTexture.Mem = (u32*)isaac_pixels;
+    isaacTexture.Clut = NULL;
+    isaacTexture.VramClut = 0;
+    isaacTexture.Filter = GS_FILTER_NEAREST;
+    isaacTexture.Delayed = GS_SETTING_OFF;
+    isaacTexture.Vram = gsKit_vram_alloc(
+        gs,
+        gsKit_texture_size(32, 32, GS_PSM_CT32),
+        GSKIT_ALLOC_USERBUFFER
+    );
+    gsKit_texture_upload(gs, &isaacTexture);
 }
 
 void game_update(int moveX, int moveY, int fireX, int fireY) {
@@ -46,9 +60,7 @@ void game_update(int moveX, int moveY, int fireX, int fireY) {
     if (isaac.y < roomTop + 20) isaac.y = roomTop + 20;
     if (isaac.y > roomBottom - 20) isaac.y = roomBottom - 20;
 
-    if (tearCooldown > 0) {
-        tearCooldown--;
-    }
+    if (tearCooldown > 0) tearCooldown--;
 
     if ((fireX != 0 || fireY != 0) && tearCooldown == 0) {
         for (int i = 0; i < 16; i++) {
@@ -66,7 +78,6 @@ void game_update(int moveX, int moveY, int fireX, int fireY) {
 
     for (int i = 0; i < 16; i++) {
         if (!tears[i].active) continue;
-
         tears[i].x += tears[i].vx;
         tears[i].y += tears[i].vy;
 
@@ -83,55 +94,36 @@ void game_draw(GSGLOBAL* gs) {
     u64 background = GS_SETREG_RGBAQ(20, 17, 24, 0x80, 0);
     u64 floor = GS_SETREG_RGBAQ(75, 65, 65, 0x80, 0);
     u64 wall = GS_SETREG_RGBAQ(105, 85, 85, 0x80, 0);
-    u64 playerColor = GS_SETREG_RGBAQ(220, 205, 190, 0x80, 0);
     u64 tearColor = GS_SETREG_RGBAQ(100, 190, 255, 0x80, 0);
 
     gsKit_clear(gs, background);
+    gsKit_prim_sprite(gs, roomLeft, roomTop, roomRight, roomBottom, 1, floor);
 
-    gsKit_prim_sprite(
-        gs, roomLeft, roomTop,
-        roomRight, roomBottom, 1, floor
+    gsKit_prim_sprite(gs, roomLeft, roomTop,
+        roomRight, roomTop + 12, 2, wall);
+    gsKit_prim_sprite(gs, roomLeft, roomBottom - 12,
+        roomRight, roomBottom, 2, wall);
+    gsKit_prim_sprite(gs, roomLeft, roomTop,
+        roomLeft + 12, roomBottom, 2, wall);
+    gsKit_prim_sprite(gs, roomRight - 12, roomTop,
+        roomRight, roomBottom, 2, wall);
+
+    // Draw the extracted 32x32 Isaac frame with its original transparency.
+    gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
+    gsKit_set_test(gs, GS_ATEST_OFF);
+    gsKit_prim_sprite_texture(
+        gs, &isaacTexture,
+        isaac.x - 16, isaac.y - 16, 0, 0,
+        isaac.x + 16, isaac.y + 16, 32, 32,
+        3, 0x80808080
     );
+    gsKit_set_test(gs, GS_ATEST_ON);
 
-    // Room walls
-    gsKit_prim_sprite(
-        gs, roomLeft, roomTop,
-        roomRight, roomTop + 12, 2, wall
-    );
-
-    gsKit_prim_sprite(
-        gs, roomLeft, roomBottom - 12,
-        roomRight, roomBottom, 2, wall
-    );
-
-    gsKit_prim_sprite(
-        gs, roomLeft, roomTop,
-        roomLeft + 12, roomBottom, 2, wall
-    );
-
-    gsKit_prim_sprite(
-        gs, roomRight - 12, roomTop,
-        roomRight, roomBottom, 2, wall
-    );
-
-    // Isaac
-    gsKit_prim_sprite(
-        gs, isaac.x - 10, isaac.y - 12,
-        isaac.x + 10, isaac.y + 12, 3, playerColor
-    );
-
-    // Tears
     for (int i = 0; i < 16; i++) {
         if (!tears[i].active) continue;
-
-        gsKit_prim_sprite(
-            gs,
-            tears[i].x - 4,
-            tears[i].y - 4,
-            tears[i].x + 4,
-            tears[i].y + 4,
-            4,
-            tearColor
-        );
+        gsKit_prim_sprite(gs,
+            tears[i].x - 4, tears[i].y - 4,
+            tears[i].x + 4, tears[i].y + 4,
+            4, tearColor);
     }
 }
