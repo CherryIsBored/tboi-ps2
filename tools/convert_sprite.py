@@ -75,3 +75,19 @@ with open("pickup_data.h", "w") as out:
             out.write("    " + ", ".join("0x%08Xu" % v for v in values[i:i+8]) + ",\n")
         out.write("},\n")
     out.write("};\n#endif\n")
+
+
+# Convert the original Basement floor into a PS2-friendly 256x256 CT32 texture.
+floor_image = Image.open("assets/backdrop/01_lbasementfloor.png").convert("RGBA")
+floor_image = floor_image.resize((256, 256), Image.Resampling.NEAREST)
+floor_values = []
+for r, g, b, a in floor_image.getdata():
+    gs_alpha = (a * 128 + 127) // 255
+    floor_values.append(r | (g << 8) | (b << 16) | (gs_alpha << 24))
+
+with open("floor_data.h", "w") as out:
+    out.write("#ifndef FLOOR_DATA_H\\n#define FLOOR_DATA_H\\n#include <stdint.h>\\n")
+    out.write("static const uint32_t floor_pixels[65536] __attribute__((aligned(64))) = {\\n")
+    for i in range(0, len(floor_values), 8):
+        out.write("    " + ", ".join("0x%08Xu" % v for v in floor_values[i:i+8]) + ",\\n")
+    out.write("};\\n#endif\\n")
