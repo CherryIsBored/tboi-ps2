@@ -5,14 +5,14 @@ image = Image.open(source).convert("RGBA")
 if image.size != (512, 512):
     raise SystemExit("Expected 512x512 Isaac atlas, got %s" % (image.size,))
 
-# WalkDown atlas: body cell at (0, 32), head cell at (0, 0).
-# Keep the two layers overlapping at the neck instead of stacking them apart.
+# Compose the body and head as separate atlas layers.
 body = image.crop((0, 32, 32, 64))
 head = image.crop((0, 0, 32, 32))
 
 frame = Image.new("RGBA", (32, 48), (0, 0, 0, 0))
 frame.alpha_composite(body, (0, 8))
-frame.alpha_composite(head, (0, 0))
+# Raise the head by one pixel for a slightly tighter fit.
+frame.alpha_composite(head, (0, -1))
 
 pixels = []
 for r, g, b, a in frame.getdata():
