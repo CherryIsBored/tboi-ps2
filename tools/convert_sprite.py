@@ -259,9 +259,8 @@ with open("heart_data.h", "w") as out:
     out.write("};\n#endif\n")
 
 # Dedicated collectible sprites, not the animated HUD counter atlas.
-# Runtime order is fixed: heart, coin, key, bomb. Each asset is an animation
-# sheet; take only its first complete 32x32 idle frame so the coin never
-# cycles through neighboring frames and the key/bomb cannot be mis-cropped.
+# Runtime order is fixed: heart, coin, key, bomb. Take one static idle cell
+# from each sheet; the coin and bomb use 32px frames, the key uses 16px cells.
 pickup_sources = [
     ("assets/items/pickups/pickup_001_heart.png", (0, 0)),
     ("assets/items/pickups/pickup_002_coin.png", (0, 0)),
