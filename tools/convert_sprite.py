@@ -140,33 +140,31 @@ with open("sprite_data.h", "w") as out:
 # Keep the floor at its native tile proportions and build four continuous wall runs.
 basement = Image.open("assets/backdrop/01_basement.png").convert("RGBA")
 floor = Image.open("assets/backdrop/01_lbasementfloor.png").convert("RGB").convert("RGBA")
-room = Image.new("RGBA", (512, 512), (18, 14, 15, 255))
+room = Image.new("RGBA", (256, 256), (18, 14, 15, 255))
 
-# The floor atlas is a 2x2 set of large floor tiles. Scale it once, then repeat
-# vertically so seams and grout remain visible instead of stretching one strip.
-floor_tile = floor.resize((352, 126), NEAREST)
-for y in (80, 206, 332):
-    room.alpha_composite(floor_tile, (80, y))
+# Keep the complete original 2x2 floor tile pattern inside a 40px stone frame.
+# The floor is deliberately opaque: this texture must never render as black.
+floor_tile = floor.resize((176, 59), NEAREST)
+for y in (40, 99, 158):
+    room.alpha_composite(floor_tile, (40, y))
 
-# Extract the actual stone/earth wall surfaces, excluding most of the black void
-# outside the room. The opposite walls use mirrored copies of the same artwork.
-top_wall = basement.crop((10, 0, 238, 48)).resize((432, 80), NEAREST)
-left_wall = basement.crop((0, 40, 52, 160)).resize((80, 352), NEAREST)
+# Four continuous wall runs cut from the actual Basement wall atlas.
+top_wall = basement.crop((10, 0, 238, 48)).resize((176, 40), NEAREST)
+left_wall = basement.crop((0, 40, 52, 160)).resize((40, 176), NEAREST)
 room.alpha_composite(top_wall, (40, 0))
-room.alpha_composite(top_wall.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (40, 432))
-room.alpha_composite(left_wall, (0, 80))
-room.alpha_composite(left_wall.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (432, 80))
+room.alpha_composite(top_wall.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (40, 216))
+room.alpha_composite(left_wall, (0, 40))
+room.alpha_composite(left_wall.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (216, 40))
 
-# Close the four corners with the matching wall artwork, retaining the dark
-# outer edge that gives Basement rooms their recessed, hand-painted outline.
-corner = basement.crop((0, 0, 52, 52)).resize((80, 80), NEAREST)
+# Rebuild all four corners from the matching original wall corner tile.
+corner = basement.crop((0, 0, 52, 52)).resize((40, 40), NEAREST)
 room.alpha_composite(corner, (0, 0))
-room.alpha_composite(corner.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (432, 0))
-room.alpha_composite(corner.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 432))
-room.alpha_composite(corner.transpose(Image.Transpose.ROTATE_180), (432, 432))
+room.alpha_composite(corner.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (216, 0))
+room.alpha_composite(corner.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 216))
+room.alpha_composite(corner.transpose(Image.Transpose.ROTATE_180), (216, 216))
 with open("room_data.h", "w") as out:
     out.write("#ifndef ROOM_DATA_H\n#define ROOM_DATA_H\n#include <stdint.h>\n")
-    out.write("static const uint32_t room_pixels[262144] __attribute__((aligned(64))) = {\n")
+    out.write("static const uint32_t room_pixels[65536] __attribute__((aligned(64))) = {\n")
     write_array(out, rgba_to_gs(room))
     out.write("};\n#endif\n")
 
@@ -187,20 +185,21 @@ with open("enemy_data.h", "w") as out:
 # Original title screen: paper background, Isaac logo and Press Start drawing.
 title = Image.open("assets/main menu/titlemenu.png").convert("RGBA")
 logo = Image.open("assets/main menu/logo.png").convert("RGBA")
-menu_bg = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
-menu_bg.alpha_composite(title.crop((0, 0, 480, 272)).resize((512, 290), NEAREST), (0, 0))
-# Keep the complete red logo and subtitle; the previous 160px crop cut it off.
-menu_logo = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
-logo_crop = remove_black_matte(logo.crop((98, 0, 373, 300)))
-logo_crop.thumbnail((256, 230), NEAREST)
-menu_logo.alpha_composite(logo_crop, ((256 - logo_crop.width) // 2, 8))
+menu_bg = Image.new("RGBA", (256, 256), (0, 0, 0, 255))
+menu_bg.alpha_composite(title.crop((0, 0, 480, 272)).resize((256, 145), NEAREST), (0, 0))
+# The title logo artwork occupies the upper part of logo.png; discard the
+# unused black canvas and fit the full logo into a VRAM-safe 256x128 texture.
+menu_logo = Image.new("RGBA", (256, 128), (0, 0, 0, 0))
+logo_crop = remove_black_matte(logo.crop((98, 0, 373, 140)))
+logo_crop.thumbnail((256, 124), NEAREST)
+menu_logo.alpha_composite(logo_crop, ((256 - logo_crop.width) // 2, 2))
 menu_prompt = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
 menu_prompt.alpha_composite(title.crop((0, 384, 156, 544)).resize((125, 128), NEAREST), (0, 0))
 with open("menu_data.h", "w") as out:
     out.write("#ifndef MENU_DATA_H\n#define MENU_DATA_H\n#include <stdint.h>\n")
     for name, img, count in [
-        ("menu_bg_pixels", menu_bg, 262144),
-        ("menu_logo_pixels", menu_logo, 65536),
+        ("menu_bg_pixels", menu_bg, 65536),
+        ("menu_logo_pixels", menu_logo, 32768),
         ("menu_prompt_pixels", menu_prompt, 16384),
     ]:
         out.write("static const uint32_t %s[%d] __attribute__((aligned(64))) = {\n" % (name, count))
