@@ -105,14 +105,14 @@ void game_init(int width, int height, GSGLOBAL* gs) {
             init_texture(gs, &isaacTextures[d][f], 32, 48, isaac_pixels[d][f]);
         init_texture(gs, &isaacShootTextures[d], 32, 48, isaac_shoot_pixels[d]);
     }
-    init_texture(gs, &roomTexture, 256, 256, room_pixels);
+    init_texture(gs, &roomTexture, 512, 512, room_pixels);
     for (int e = 0; e < 4; e++)
         init_texture(gs, &enemyTextures[e], 32, 32, enemy_pixels[e]);
     for (int p = 0; p < 4; p++)
         init_texture(gs, &pickupTextures[p], 16, 16, pickup_pixels[p]);
     init_texture(gs, &heartTexture, 16, 16, heart_pixels);
-    init_texture(gs, &menuBackgroundTexture, 256, 256, menu_bg_pixels);
-    init_texture(gs, &menuLogoTexture, 256, 128, menu_logo_pixels);
+    init_texture(gs, &menuBackgroundTexture, 512, 512, menu_bg_pixels);
+    init_texture(gs, &menuLogoTexture, 256, 256, menu_logo_pixels);
     init_texture(gs, &menuPromptTexture, 128, 128, menu_prompt_pixels);
     spawn_room();
 }
@@ -243,9 +243,9 @@ void game_draw(GSGLOBAL* gs) {
         gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
         gsKit_set_test(gs, GS_ATEST_OFF);
         gsKit_prim_sprite_texture(gs, &menuBackgroundTexture, 0, 0, 0, 0,
-            gs->Width, gs->Height, 256, 145, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
-        gsKit_prim_sprite_texture(gs, &menuLogoTexture, gs->Width * 0.5f - 170, 8, 0, 0,
-            gs->Width * 0.5f + 170, 122, 256, 85, 2, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+            gs->Width, gs->Height, 512, 290, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+        gsKit_prim_sprite_texture(gs, &menuLogoTexture, gs->Width * 0.5f - 145, 8, 0, 0,
+            gs->Width * 0.5f + 145, 220, 256, 256, 2, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
         if ((menuTick / 20) % 2 == 0) {
             gsKit_prim_sprite_texture(gs, &menuPromptTexture, gs->Width * 0.5f - 62, gs->Height - 118, 0, 0,
                 gs->Width * 0.5f + 62, gs->Height - 10, 125, 128, 3, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
@@ -257,7 +257,7 @@ void game_draw(GSGLOBAL* gs) {
 
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     gsKit_set_test(gs, GS_ATEST_OFF);
-    gsKit_prim_sprite_texture(gs, &roomTexture, roomLeft, roomTop, 0, 0, roomRight, roomBottom, 256, 256, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+    gsKit_prim_sprite_texture(gs, &roomTexture, roomLeft, roomTop, 0, 0, roomRight, roomBottom, 512, 512, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
 
