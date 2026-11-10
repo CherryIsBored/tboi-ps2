@@ -31,6 +31,7 @@ int main() {
 
     int padReady = padPortOpen(0, 0, padBuffer);
     struct padButtonStatus buttons;
+    int padModeRequested = 0;
 
     game_init(gs->Width, gs->Height, gs);
 
@@ -43,27 +44,45 @@ int main() {
         if (padReady != 0) {
             int state = padGetState(0, 0);
 
-            if (state == PAD_STATE_STABLE && padRead(0, 0, &buttons) != 0) {
-                unsigned short pressed = (unsigned short)(~buttons.btns);
+            if (state == PAD_STATE_STABLE) {
+                // Explicitly enable DualShock analog mode once the pad is ready.
+                if (!padModeRequested) {
+                    int modes = padInfoMode(0, 0, PAD_MODETABLE, -1);
+                    int hasDualShock = 0;
+                    for (int i = 0; i < modes; i++) {
+                        if (padInfoMode(0, 0, PAD_MODETABLE, i) == PAD_TYPE_DUALSHOCK) {
+                            hasDualShock = 1;
+                            break;
+                        }
+                    }
+                    if (hasDualShock) {
+                        padSetMainMode(0, 0, PAD_MMODE_DUALSHOCK, PAD_MMODE_LOCK);
+                    }
+                    padModeRequested = 1;
+                }
 
-                // Left analog stick (0-255, center around 128).
-                // A generous dead zone avoids drift on older controllers.
-                if (buttons.ljoy_h < 96) moveX = -1;
-                if (buttons.ljoy_h > 160) moveX = 1;
-                if (buttons.ljoy_v < 96) moveY = -1;
-                if (buttons.ljoy_v > 160) moveY = 1;
+                if (padRead(0, 0, &buttons) != 0) {
+                    unsigned short pressed = (unsigned short)(~buttons.btns);
 
-                // D-pad remains available and takes priority.
-                if (pressed & PAD_LEFT)  moveX = -1;
-                if (pressed & PAD_RIGHT) moveX = 1;
-                if (pressed & PAD_UP)    moveY = -1;
-                if (pressed & PAD_DOWN)  moveY = 1;
+                    // Read analog axes only after the controller reports DualShock mode.
+                    if (padInfoMode(0, 0, PAD_MODECURID, 0) == PAD_TYPE_DUALSHOCK) {
+                        if (buttons.ljoy_h < 96) moveX = -1;
+                        if (buttons.ljoy_h > 160) moveX = 1;
+                        if (buttons.ljoy_v < 96) moveY = -1;
+                        if (buttons.ljoy_v > 160) moveY = 1;
+                    }
 
-                // Shooting: face buttons.
-                if (pressed & PAD_SQUARE)   fireX = -1;
-                if (pressed & PAD_CIRCLE)   fireX = 1;
-                if (pressed & PAD_TRIANGLE) fireY = -1;
-                if (pressed & PAD_CROSS)    fireY = 1;
+                    // D-pad overrides analog input and always remains usable.
+                    if (pressed & PAD_LEFT)  moveX = -1;
+                    if (pressed & PAD_RIGHT) moveX = 1;
+                    if (pressed & PAD_UP)    moveY = -1;
+                    if (pressed & PAD_DOWN)  moveY = 1;
+
+                    if (pressed & PAD_SQUARE)   fireX = -1;
+                    if (pressed & PAD_CIRCLE)   fireX = 1;
+                    if (pressed & PAD_TRIANGLE) fireY = -1;
+                    if (pressed & PAD_CROSS)    fireY = 1;
+                }
             }
         }
 
