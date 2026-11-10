@@ -1,6 +1,7 @@
 #include "game.h"
 #include "sprite_data.h"
 #include "pickup_data.h"
+#include "floor_data.h"
 
 static Player isaac;
 static Tear tears[16];
@@ -9,6 +10,7 @@ static Pickup pickups[8];
 static int coins = 0, keys = 0, bombs = 0;
 static GSTEXTURE isaacTextures[4][10];
 static GSTEXTURE pickupTextures[4];
+static GSTEXTURE floorTexture;
 
 static float roomLeft, roomRight, roomTop, roomBottom;
 static int tearCooldown = 0;
@@ -84,6 +86,14 @@ void game_init(int width, int height, GSGLOBAL* gs) {
             gsKit_texture_upload(gs, texture);
         }
     }
+    floorTexture.Width = 256; floorTexture.Height = 256;
+    floorTexture.PSM = GS_PSM_CT32; floorTexture.ClutPSM = GS_PSM_CT32;
+    floorTexture.Mem = (u32*)floor_pixels; floorTexture.Clut = NULL;
+    floorTexture.VramClut = 0; floorTexture.Filter = GS_FILTER_NEAREST;
+    floorTexture.Delayed = GS_SETTING_OFF;
+    floorTexture.Vram = gsKit_vram_alloc(gs, gsKit_texture_size(256, 256, GS_PSM_CT32), GSKIT_ALLOC_USERBUFFER);
+    gsKit_texture_upload(gs, &floorTexture);
+
     for (int p = 0; p < 4; p++) {
         GSTEXTURE* texture = &pickupTextures[p];
         texture->Width = 16; texture->Height = 16;
@@ -198,7 +208,11 @@ void game_draw(GSGLOBAL* gs) {
     u64 wall = GS_SETREG_RGBAQ(105, 85, 85, 0x80, 0);
     u64 tearColor = GS_SETREG_RGBAQ(100, 190, 255, 0x80, 0);
     gsKit_clear(gs, background);
-    gsKit_prim_sprite(gs, roomLeft, roomTop, roomRight, roomBottom, 1, floor);
+    gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
+    gsKit_set_test(gs, GS_ATEST_OFF);
+    gsKit_prim_sprite_texture(gs, &floorTexture, roomLeft, roomTop, 0, 0, roomRight, roomBottom, 256, 256, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+    gsKit_set_test(gs, GS_ATEST_ON);
+    gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
     gsKit_prim_sprite(gs, roomLeft, roomTop, roomRight, roomTop + 12, 2, wall);
     gsKit_prim_sprite(gs, roomLeft, roomBottom - 12, roomRight, roomBottom, 2, wall);
     gsKit_prim_sprite(gs, roomLeft, roomTop, roomLeft + 12, roomBottom, 2, wall);
