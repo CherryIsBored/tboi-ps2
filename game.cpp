@@ -62,8 +62,10 @@ static void drop_pickup(float x, float y, int seed) {
         // Balanced drops: every pickup type has an equal chance.
         // Mix a fresh room RNG value with the defeated enemy so keys and bombs
         // are not starved by the old fixed modulo pattern.
-        unsigned int roll = (room_random() + (unsigned int)(seed * 17 + roomNumber * 31)) & 3u;
-        pickups[i].type = (int)roll;
+        // Use the high RNG bits (the low bits of an LCG cycle predictably).
+        // Weight common coins, with reliable chances for hearts, keys and bombs.
+        unsigned int roll = (room_random() >> 16) % 100u;
+        pickups[i].type = roll < 45u ? 1 : (roll < 70u ? 0 : (roll < 85u ? 2 : 3));
         pickups[i].active = 1;
         break;
     }
