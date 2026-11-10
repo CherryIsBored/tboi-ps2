@@ -98,16 +98,14 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_prim_sprite(gs, roomRight - 12, roomTop, roomRight, roomBottom, 2, wall);
 
     // Use GS texture alpha to blend transparent pixels instead of drawing them black.
-    gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
-    gsKit_set_test(gs, GS_ATEST_OFF);
+    // Alpha-test transparent texels; do not blend the whole frame buffer.
+    gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_prim_sprite_texture(
         gs, &isaacTexture,
         isaac.x - 16, isaac.y - 24, 0, 0,
         isaac.x + 16, isaac.y + 24, 32, 48,
         3, GS_SETREG_RGBAQ(0x80, 0x80, 0x80, 0x80, 0)
     );
-    gsKit_set_test(gs, GS_ATEST_ON);
-    gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
 
     for (int i = 0; i < 16; i++) {
         if (!tears[i].active) continue;
