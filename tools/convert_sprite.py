@@ -52,3 +52,26 @@ with open("sprite_data.h", "w") as out:
             out.write("},\n")
         out.write("},\n")
     out.write("};\n#endif\n")
+
+# Extract real HUD pickup sprites using the crop rectangles documented by
+# assets/ui/hudpickups.anm2. The atlas uses 16x16 frames.
+hud = Image.open("assets/ui/hudpickups.png").convert("RGBA")
+if hud.width < 96 or hud.height < 16:
+    raise SystemExit("Unexpected hudpickups.png dimensions: %s" % (hud.size,))
+
+# Heart, coin, key and bomb icon cells from the original HUD atlas.
+pickup_cells = [(0, 0), (32, 0), (64, 0), (80, 0)]
+with open("pickup_data.h", "w") as out:
+    out.write("#ifndef PICKUP_DATA_H\\n#define PICKUP_DATA_H\\n#include <stdint.h>\\n")
+    out.write("static const uint32_t pickup_pixels[4][256] __attribute__((aligned(64))) = {\\n")
+    for x, y in pickup_cells:
+        crop = hud.crop((x, y, x + 16, y + 16))
+        out.write("{\\n")
+        values = []
+        for r, g, b, a in crop.getdata():
+            gs_alpha = (a * 128 + 127) // 255
+            values.append(r | (g << 8) | (b << 16) | (gs_alpha << 24))
+        for i in range(0, len(values), 8):
+            out.write("    " + ", ".join("0x%08Xu" % v for v in values[i:i+8]) + ",\\n")
+        out.write("},\\n")
+    out.write("};\\n#endif\\n")
