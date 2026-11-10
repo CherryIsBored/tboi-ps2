@@ -27,7 +27,7 @@ struct Pickup {
 };
 
 void game_init(int width, int height, GSGLOBAL* gs);
-void game_update(int moveX, int moveY, int fireX, int fireY);
+void game_update(int moveX, int moveY, int fireX, int fireY, int startPressed);
 void game_draw(GSGLOBAL* gs);
 
 #endif
