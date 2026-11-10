@@ -297,11 +297,11 @@ void game_draw(GSGLOBAL* gs) {
         gsKit_set_test(gs, GS_ATEST_OFF);
         gsKit_prim_sprite_texture(gs, &menuBackgroundTexture, 0, (gs->Height - 363) * 0.5f, 0, 0,
             gs->Width, (gs->Height + 363) * 0.5f, 256, 145, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
-        gsKit_prim_sprite_texture(gs, &menuLogoTexture, gs->Width * 0.5f - 160, 54, 0, 0,
-            gs->Width * 0.5f + 160, 182, 256, 128, 2, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+        gsKit_prim_sprite_texture(gs, &menuLogoTexture, gs->Width * 0.5f - 160, gs->Height * 0.22f, 0, 0,
+            gs->Width * 0.5f + 160, gs->Height * 0.22f + 128, 256, 128, 2, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
         if ((menuTick / 20) % 2 == 0) {
-            gsKit_prim_sprite_texture(gs, &menuPromptTexture, gs->Width * 0.5f - 62, gs->Height - 150, 0, 0,
-                gs->Width * 0.5f + 62, gs->Height - 42, 125, 128, 3, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+            gsKit_prim_sprite_texture(gs, &menuPromptTexture, gs->Width * 0.5f - 62, gs->Height * 0.66f, 0, 0,
+                gs->Width * 0.5f + 62, gs->Height * 0.66f + 108, 125, 128, 3, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
         }
         gsKit_set_test(gs, GS_ATEST_ON);
         gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
@@ -350,16 +350,16 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
 
-    // Tears are untextured GS sprites. Draw them with alpha testing disabled;
-    // the test is intended for cutout textures and can reject these primitives.
+    // Simple, unmistakable blue tear shots until BulletAtlas.png is added.
+    // Keep alpha testing disabled for these untextured primitives.
     gsKit_set_test(gs, GS_ATEST_OFF);
-    gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
+    gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     for (int i = 0; i < 16; i++) if (tears[i].active) {
-        // Bright, solid cyan tear with a larger footprint for visibility.
-        gsKit_prim_sprite(gs, tears[i].x - 5, tears[i].y - 5,
-            tears[i].x + 5, tears[i].y + 5, 6,
-            GS_SETREG_RGBAQ(110, 205, 255, 0x80, 0));
+        gsKit_prim_sprite(gs, tears[i].x - 4, tears[i].y - 4,
+            tears[i].x + 4, tears[i].y + 4, 6,
+            GS_SETREG_RGBAQ(55, 145, 255, 0x80, 0));
     }
+    gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
     gsKit_set_test(gs, GS_ATEST_ON);
 
     // Original heart icon from ui_hearts.png.
