@@ -40,6 +40,7 @@ int main() {
         int moveY = 0;
         int fireX = 0;
         int fireY = 0;
+        int startPressed = 0;
 
         if (padReady != 0) {
             int state = padGetState(0, 0);
@@ -78,6 +79,7 @@ int main() {
                     if (pressed & PAD_UP)    moveY = -1;
                     if (pressed & PAD_DOWN)  moveY = 1;
 
+                    if (pressed & PAD_START) startPressed = 1;
                     if (pressed & PAD_SQUARE)   fireX = -1;
                     if (pressed & PAD_CIRCLE)   fireX = 1;
                     if (pressed & PAD_TRIANGLE) fireY = -1;
@@ -86,7 +88,7 @@ int main() {
             }
         }
 
-        game_update(moveX, moveY, fireX, fireY);
+        game_update(moveX, moveY, fireX, fireY, startPressed);
         game_draw(gs);
         gsKit_queue_exec(gs);
         gsKit_sync_flip(gs);
