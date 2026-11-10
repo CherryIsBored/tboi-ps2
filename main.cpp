@@ -21,7 +21,6 @@ int main() {
     );
 
     dmaKit_chan_init(DMA_CHANNEL_GIF);
-    gs->PrimAlphaEnable = GS_SETTING_ON;
     gsKit_init_screen(gs);
     gsKit_mode_switch(gs, GS_ONESHOT);
 
