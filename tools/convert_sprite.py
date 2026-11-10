@@ -275,9 +275,9 @@ with open("pickup_data.h", "w") as out:
         sheet = Image.open(path).convert("RGBA")
         if sheet.width < x + 32 or sheet.height < y + 32:
             raise SystemExit("Pickup sheet is too small: " + path)
-        # World pickups are individual 16x16 cells in these sheets.
-        # A 32x32 crop combines adjacent coin/key frames (the coin appears doubled).
-        cell = 32 if "heart" in path else 16
+        # Use each asset's actual frame dimensions. Coin and bomb ANM2 frames
+        # are 32x32; the key sheet is a 16x16 grid. Never merge adjacent frames.
+        cell = 16 if "key.png" in path else 32
         icon = sheet.crop((x, y, x + cell, y + cell)).resize((16, 16), NEAREST)
         out.write("{\n")
         write_array(out, rgba_to_gs(icon))
