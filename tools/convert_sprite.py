@@ -272,12 +272,20 @@ with open("pickup_data.h", "w") as out:
     out.write("static const uint32_t pickup_pixels[4][256] __attribute__((aligned(64))) = {\n")
     for path, (x, y) in pickup_sources:
         sheet = Image.open(path).convert("RGBA")
-        if sheet.width < x + 32 or sheet.height < y + 32:
-            raise SystemExit("Pickup sheet is too small: " + path)
-        # Use each asset's actual frame dimensions. Coin and bomb ANM2 frames
-        # are 32x32; the key sheet is a 16x16 grid. Never merge adjacent frames.
-        cell = 16 if "key.png" in path else 32
-        icon = sheet.crop((x, y, x + cell, y + cell)).resize((16, 16), NEAREST)
+        # These sheets use different frame grids. Isolate one collectible
+        # instead of scaling a whole multi-sprite cell into the game texture.
+        if "pickup_001_heart" in path:
+            crop_box = (x, y, x + 32, y + 32)
+        elif "pickup_002_coin" in path:
+            # The coin sheet's first collectible occupies the left half.
+            crop_box = (x, y, x + 16, y + 32)
+        elif "pickup_003_key" in path:
+            crop_box = (x, y, x + 16, y + 16)
+        else:
+            crop_box = (x, y, x + 32, y + 32)
+        if sheet.width < crop_box[2] or sheet.height < crop_box[3]:
+            raise SystemExit("Pickup sheet is too small for crop %s: %s" % (crop_box, path))
+        icon = sheet.crop(crop_box).resize((16, 16), NEAREST)
         out.write("{\n")
         write_array(out, rgba_to_gs(icon))
         out.write("},\n")
