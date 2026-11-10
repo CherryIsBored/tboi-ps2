@@ -1,4 +1,3 @@
-
 name: Build PS2 ELF
 
 on:
@@ -15,7 +14,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install sprite converter\n        run: python3 -m pip install Pillow\n\n      - name: Generate embedded Isaac sprite\n        run: python3 tools/convert_sprite.py\n\n      - name: Build compiler image
+      - name: Install sprite converter
+        run: python3 -m pip install Pillow
+
+      - name: Generate embedded Isaac sprite
+        run: python3 tools/convert_sprite.py
+
+      - name: Build compiler image
         run: docker build -t isaac-ps2-builder .
 
       - name: Compile game
