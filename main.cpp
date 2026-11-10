@@ -40,7 +40,7 @@ int main() {
     struct padButtonStatus buttons;
 
     // Game initialization
-    game_init(gs->Width, gs->Height);
+    game_init(gs->Width, gs->Height, gs);
 
     while (1) {
         int moveX = 0;
