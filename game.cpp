@@ -318,6 +318,8 @@ void game_draw(GSGLOBAL* gs) {
 
     gsKit_prim_sprite_texture(gs, &roomTexture, roomLeft, roomTop, 0, 0, roomRight, roomBottom, 256, 256, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
 
+    // Doors are physically represented only after every enemy is defeated.
+    if (roomCleared) {
     // Four door openings are drawn strictly inside the wall thickness.
     // Each is a dark passage with a brown lintel and side jambs; none reaches
     // into the walkable floor, and all four are centered on their wall.
@@ -343,6 +345,8 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_prim_sprite(gs, roomRight - 33, cy - 16, roomRight - 3, cy - 12, 2, doorFrame);
     gsKit_prim_sprite(gs, roomRight - 33, cy + 12, roomRight - 3, cy + 16, 2, doorFrame);
     gsKit_prim_sprite(gs, roomRight - 7, cy - 16, roomRight - 3, cy + 16, 2, doorFrame);
+
+    }
 
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
