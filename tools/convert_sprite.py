@@ -18,21 +18,44 @@ def layer_frames(root, animation_name, layer_id):
     animation = root.find(".//Animation[@Name='%s']" % animation_name)
     if animation is None:
         raise SystemExit("Missing animation in player ANM2: " + animation_name)
+
+    # The uploaded Isaac ANM2 stores the visible player layer as LayerId 0.
+    # Some game dumps use the semantic body/head ids (1 and 4), so prefer the
+    # requested id but safely fall back when this animation has one framed layer.
     layer = animation.find("./LayerAnimations/LayerAnimation[@LayerId='%s']" % layer_id)
     if layer is None:
-        raise SystemExit("Missing layer %s in animation %s" % (layer_id, animation_name))
-    return [frame.attrib for frame in layer.findall("Frame")]
+        candidates = [
+            item for item in animation.findall("./LayerAnimations/LayerAnimation")
+            if item.findall("Frame")
+        ]
+        if len(candidates) != 1:
+            raise SystemExit(
+                "Missing layer %s in animation %s (found %d framed layers)" %
+                (layer_id, animation_name, len(candidates))
+            )
+        layer = candidates[0]
+
+    frames = [frame.attrib for frame in layer.findall("Frame")]
+    if not frames:
+        raise SystemExit("Empty layer %s in animation %s" % (layer_id, animation_name))
+    return frames
 
 def crop_anm_frame(atlas, attrs):
     x = int(float(attrs.get("XCrop", 0)))
     y = int(float(attrs.get("YCrop", 0)))
     w = int(float(attrs.get("Width", 32)))
     h = int(float(attrs.get("Height", 32)))
-    crop = atlas.crop((x, y, x + w, y + h)).resize((32, 32), NEAREST)
-    if float(attrs.get("XScale", 100)) < 0:
+    crop = atlas.crop((x, y, x + w, y + h))
+    sx = float(attrs.get("XScale", 100))
+    sy = float(attrs.get("YScale", 100))
+    if sx < 0:
         crop = crop.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-    if float(attrs.get("YScale", 100)) < 0:
+    if sy < 0:
         crop = crop.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    target_w = max(1, int(round(w * abs(sx) / 100.0)))
+    target_h = max(1, int(round(h * abs(sy) / 100.0)))
+    if crop.size != (target_w, target_h):
+        crop = crop.resize((target_w, target_h), NEAREST)
     return crop
 
 # Isaac: use the actual Walk and Head frame rectangles from the uploaded ANM2.
@@ -57,12 +80,14 @@ for walk_name, head_name in directions:
     for frame_index in range(10):
         body = bodies[frame_index % len(bodies)]
         frame = Image.new("RGBA", (32, 48), (0, 0, 0, 0))
-        frame.alpha_composite(body, (0, 8))
-        frame.alpha_composite(normal_head, (0, -2))
+        # ANM2 pivots: body top is y=-23 and head top is y=-33.
+        # Shift both by +33 so the head starts at row 0 and the body at row 10.
+        frame.alpha_composite(body, (0, 10))
+        frame.alpha_composite(normal_head, (0, 0))
         direction_walk.append(rgba_to_gs(frame))
     shoot = Image.new("RGBA", (32, 48), (0, 0, 0, 0))
-    shoot.alpha_composite(bodies[0], (0, 8))
-    shoot.alpha_composite(shooting_head, (0, -2))
+    shoot.alpha_composite(bodies[0], (0, 10))
+    shoot.alpha_composite(shooting_head, (0, 0))
     walk_frames.append(direction_walk)
     shoot_frames.append(rgba_to_gs(shoot))
 
@@ -150,7 +175,9 @@ with open("heart_data.h", "w") as out:
 
 # Original pickup icons from the HUD atlas.
 hud = Image.open("assets/ui/hudpickups.png").convert("RGBA")
-pickup_cells = [(0, 0), (32, 0), (64, 0), (80, 0)]
+# Runtime pickup order: heart, coin, key, bomb.
+# HUD atlas positions: heart x=80, coin x=0, key x=64, bomb x=32.
+pickup_cells = [(80, 0), (0, 0), (64, 0), (32, 0)]
 with open("pickup_data.h", "w") as out:
     out.write("#ifndef PICKUP_DATA_H\n#define PICKUP_DATA_H\n#include <stdint.h>\n")
     out.write("static const uint32_t pickup_pixels[4][256] __attribute__((aligned(64))) = {\n")
