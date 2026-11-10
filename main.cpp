@@ -19,6 +19,9 @@ int main() {
     gs->PSMZ = GS_PSMZ_16;
     gs->ZBuffering = GS_SETTING_OFF;
     gs->DoubleBuffering = GS_SETTING_ON;
+    // Textured sprites use 0..128 GS alpha; enable the GS source-over blend
+    // so transparent atlas pixels reveal the room instead of a black rectangle.
+    gs->PrimAlphaEnable = GS_SETTING_ON;
 
     dmaKit_init(
         D_CTRL_RELE_OFF,
