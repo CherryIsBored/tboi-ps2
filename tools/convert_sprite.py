@@ -40,15 +40,15 @@ for direction in directions:
     frames.append(direction_frames)
 
 with open("sprite_data.h", "w") as out:
-    out.write("#ifndef SPRITE_DATA_H\\n#define SPRITE_DATA_H\\n")
-    out.write("#include <stdint.h>\\n")
-    out.write("static const uint32_t isaac_pixels[4][10][1536] __attribute__((aligned(64))) = {\\n")
+    out.write("#ifndef SPRITE_DATA_H\n#define SPRITE_DATA_H\n")
+    out.write("#include <stdint.h>\n")
+    out.write("static const uint32_t isaac_pixels[4][10][1536] __attribute__((aligned(64))) = {\n")
     for direction_frames in frames:
-        out.write("{\\n")
+        out.write("{\n")
         for pixels in direction_frames:
-            out.write("{\\n")
+            out.write("{\n")
             for i in range(0, len(pixels), 8):
-                out.write("    " + ", ".join("0x%08Xu" % p for p in pixels[i:i+8]) + ",\\n")
-            out.write("},\\n")
-        out.write("},\\n")
-    out.write("};\\n#endif\\n")
+                out.write("    " + ", ".join("0x%08Xu" % p for p in pixels[i:i+8]) + ",\n")
+            out.write("},\n")
+        out.write("},\n")
+    out.write("};\n#endif\n")
