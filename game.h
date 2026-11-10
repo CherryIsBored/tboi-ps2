@@ -1,4 +1,3 @@
-
 #ifndef GAME_H
 #define GAME_H
 
@@ -19,7 +18,7 @@ struct Tear {
     int active;
 };
 
-void game_init(int width, int height);
+void game_init(int width, int height, GSGLOBAL* gs);
 void game_update(int moveX, int moveY, int fireX, int fireY);
 void game_draw(GSGLOBAL* gs);
 
