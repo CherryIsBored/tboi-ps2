@@ -169,6 +169,19 @@ void game_update(int moveX, int moveY, int fireX, int fireY, int startPressed) {
     if (!gameStarted) {
         menuTick++;
         if (startPressed) {
+            // Starting from the title screen begins a clean run; returning
+            // after death also restores health, inventory and room progression.
+            if (isaac.health <= 0) {
+                isaac.health = 6;
+                coins = keys = bombs = 0;
+                roomNumber = 1;
+                roomRng = 0x41C64E6Du;
+                dropsSinceKey = dropsSinceBomb = 0;
+                isaac.x = (roomLeft + roomRight) * 0.5f;
+                isaac.y = (roomTop + roomBottom) * 0.5f;
+                isaac.vx = isaac.vy = 0.0f;
+                damageCooldown = tearCooldown = 0;
+            }
             gameStarted = 1;
             spawn_room();
         }
@@ -287,6 +300,11 @@ void game_update(int moveX, int moveY, int fireX, int fireY, int startPressed) {
         if (enemies[e].flash > 0) enemies[e].flash--;
         if (absf(isaac.x - enemies[e].x) < 20 && absf(isaac.y - enemies[e].y) < 20 && damageCooldown == 0) {
             if (isaac.health > 0) isaac.health--;
+            if (isaac.health <= 0) {
+                isaac.health = 0;
+                gameStarted = 0;
+                return;
+            }
             damageCooldown = 75;
             hitFlash = 12;
             isaac.x += (isaac.x < enemies[e].x ? -12.0f : 12.0f);
