@@ -14,14 +14,18 @@ jobs:
       image: ghcr.io/ps2dev/ps2dev:latest
 
     steps:
-      - name: Download repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Compile PS2 game
+      - name: Verify PS2 toolchain
         run: |
-          cd "$GITHUB_WORKSPACE"
-          make clean
-          make
+          echo "Checking PS2 compiler..."
+          which mips64r5900el-ps2-elf-g++
+          echo "Checking PS2SDK..."
+          echo "$PS2SDK"
+
+      - name: Compile game
+        run: make clean all
 
       - name: Upload ELF
         uses: actions/upload-artifact@v4
