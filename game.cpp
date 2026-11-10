@@ -447,6 +447,16 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
     for (int c = 0; c < (coins > 9 ? 9 : coins); c++)
         gsKit_prim_sprite(gs, roomLeft + 28 + c * 3, roomBottom - 18, roomLeft + 30 + c * 3, roomBottom - 14, 8, GS_SETREG_RGBAQ(235, 190, 55, 0x80, 0));
+    // Tiny inventory pips keep key/bomb totals visible without introducing a
+    // font atlas or another large texture into the PS2's 4 MB VRAM budget.
+    for (int k = 0; k < (keys > 9 ? 9 : keys); k++)
+        gsKit_prim_sprite(gs, roomLeft + 66 + k * 3, roomBottom - 18,
+            roomLeft + 68 + k * 3, roomBottom - 13, 8,
+            GS_SETREG_RGBAQ(245, 205, 80, 0x80, 0));
+    for (int b = 0; b < (bombs > 9 ? 9 : bombs); b++)
+        gsKit_prim_sprite(gs, roomLeft + 104 + b * 3, roomBottom - 18,
+            roomLeft + 106 + b * 3, roomBottom - 13, 8,
+            GS_SETREG_RGBAQ(185, 185, 195, 0x80, 0));
 
     // Room number and clear indicator are represented with compact status bars.
     u64 status = roomCleared ? GS_SETREG_RGBAQ(80, 190, 95, 0x80, 0) : GS_SETREG_RGBAQ(180, 135, 65, 0x80, 0);
