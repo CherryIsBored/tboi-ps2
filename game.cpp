@@ -261,19 +261,8 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
 
-    // Four-sided frame from the earlier working room, drawn over the art.
-    u64 frameColor = GS_SETREG_RGBAQ(105, 85, 85, 0x80, 0);
-    gsKit_prim_sprite(gs, roomLeft, roomTop, roomRight, roomTop + 12, 2, frameColor);
-    gsKit_prim_sprite(gs, roomLeft, roomBottom - 12, roomRight, roomBottom, 2, frameColor);
-    gsKit_prim_sprite(gs, roomLeft, roomTop, roomLeft + 12, roomBottom, 2, frameColor);
-    gsKit_prim_sprite(gs, roomRight - 12, roomTop, roomRight, roomBottom, 2, frameColor);
-
-    // Door openings become visible after every enemy is defeated.
-    u64 doorColor = roomCleared ? GS_SETREG_RGBAQ(80, 170, 90, 0x80, 0) : GS_SETREG_RGBAQ(45, 35, 38, 0x80, 0);
-    gsKit_prim_sprite(gs, (roomLeft + roomRight) * .5f - 15, roomTop, (roomLeft + roomRight) * .5f + 15, roomTop + 12, 3, doorColor);
-    gsKit_prim_sprite(gs, (roomLeft + roomRight) * .5f - 15, roomBottom - 12, (roomLeft + roomRight) * .5f + 15, roomBottom, 3, doorColor);
-    gsKit_prim_sprite(gs, roomLeft, (roomTop + roomBottom) * .5f - 15, roomLeft + 12, (roomTop + roomBottom) * .5f + 15, 3, doorColor);
-    gsKit_prim_sprite(gs, roomRight - 12, (roomTop + roomBottom) * .5f - 15, roomRight, (roomTop + roomBottom) * .5f + 15, 3, doorColor);
+    // The room texture already contains the original Basement wall frame.
+    // Do not paint flat rectangles over the artwork: keep its stone edges intact.
 
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     gsKit_set_test(gs, GS_ATEST_OFF);
