@@ -20,6 +20,12 @@ struct Enemy {
     int flash;
 };
 
+struct Pickup {
+    float x, y;
+    int type; // 0 heart, 1 coin, 2 key, 3 bomb
+    int active;
+};
+
 void game_init(int width, int height, GSGLOBAL* gs);
 void game_update(int moveX, int moveY, int fireX, int fireY);
 void game_draw(GSGLOBAL* gs);
