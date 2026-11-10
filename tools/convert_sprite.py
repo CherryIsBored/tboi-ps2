@@ -10,30 +10,70 @@ def rgba_to_gs(image):
         values.append(r | (g << 8) | (b << 16) | (alpha << 24))
     return values
 
-def remove_white_matte(image, threshold=242):
-    """Turn the white atlas canvas and its antialiased fringe into transparency."""
+def remove_edge_matte(image, matte="white"):
+    """Remove only the background connected to the crop border, preserving
+    enclosed white eyes/highlights and dark outlines inside the sprite."""
+    from collections import deque
     image = image.convert("RGBA")
     px = image.load()
-    for y in range(image.height):
-        for x in range(image.width):
-            r, g, b, a = px[x, y]
-            if r >= threshold and g >= threshold and b >= threshold:
-                px[x, y] = (r, g, b, 0)
-            elif r >= 220 and g >= 220 and b >= 220:
-                # Fade the near-white fringe instead of leaving a pale halo.
-                strength = max(0, min(255, int((255 - min(r, g, b)) * 255 / 35)))
-                px[x, y] = (r, g, b, min(a, strength))
-    return image
+    w, h = image.size
+    seen = bytearray(w * h)
+    queue = deque()
 
-def remove_black_matte(image, threshold=24):
-    """Remove the black rectangle behind the supplied title logo."""
-    image = image.convert("RGBA")
-    px = image.load()
-    for y in range(image.height):
-        for x in range(image.width):
+    def is_matte(x, y):
+        r, g, b, a = px[x, y]
+        if a == 0:
+            return True
+        if matte == "white":
+            return r >= 224 and g >= 224 and b >= 224
+        return r <= 32 and g <= 32 and b <= 32
+
+    # Seed all matte-colored pixels touching the crop boundary.
+    for x in range(w):
+        for y in (0, h - 1):
+            if is_matte(x, y):
+                idx = y * w + x
+                if not seen[idx]:
+                    seen[idx] = 1
+                    queue.append((x, y))
+    for y in range(h):
+        for x in (0, w - 1):
+            if is_matte(x, y):
+                idx = y * w + x
+                if not seen[idx]:
+                    seen[idx] = 1
+                    queue.append((x, y))
+
+    # Flood only connected background; internal eye whites / ink stay intact.
+    while queue:
+        x, y = queue.popleft()
+        r, g, b, a = px[x, y]
+        px[x, y] = (r, g, b, 0)
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if nx < 0 or ny < 0 or nx >= w or ny >= h:
+                continue
+            idx = ny * w + nx
+            if not seen[idx] and is_matte(nx, ny):
+                seen[idx] = 1
+                queue.append((nx, ny))
+
+    # Soften a one-pixel antialiased fringe immediately beside the cutout.
+    fringe = []
+    for y in range(h):
+        for x in range(w):
+            if seen[y * w + x]:
+                continue
             r, g, b, a = px[x, y]
-            if r <= threshold and g <= threshold and b <= threshold:
-                px[x, y] = (r, g, b, 0)
+            if matte == "white" and r >= 205 and g >= 205 and b >= 205:
+                if any(0 <= nx < w and 0 <= ny < h and seen[ny * w + nx]
+                       for nx, ny in ((x-1,y),(x+1,y),(x,y-1),(x,y+1))):
+                    fringe.append((x, y, r, g, b, a))
+            elif matte == "black" and r <= 55 and g <= 55 and b <= 55:
+                if any(0 <= nx < w and 0 <= ny < h and seen[ny * w + nx]
+                       for nx, ny in ((x-1,y),(x+1,y),(x,y-1),(x,y+1))):
+                    fringe.append((x, y, r, g, b, a))
+    for x, y, r, g, b, a in fringe:
+        px[x, y] = (r, g, b, min(a, 96))
     return image
 
 def write_array(out, values, indent="    "):
@@ -71,7 +111,7 @@ def crop_anm_frame(atlas, attrs):
     y = int(float(attrs.get("YCrop", 0)))
     w = int(float(attrs.get("Width", 32)))
     h = int(float(attrs.get("Height", 32)))
-    crop = remove_white_matte(atlas.crop((x, y, x + w, y + h)))
+    crop = remove_edge_matte(atlas.crop((x, y, x + w, y + h)), "white")
     sx = float(attrs.get("XScale", 100))
     sy = float(attrs.get("YScale", 100))
     if sx < 0:
@@ -170,7 +210,7 @@ with open("room_data.h", "w") as out:
 
 
 # Real animated fly frames from the uploaded Repentance sprite sheet.
-flies = remove_white_matte(Image.open("assets/repentance/big_flies.png"), 238)
+flies = remove_edge_matte(Image.open("assets/repentance/big_flies.png"), "white")
 if flies.size != (128, 96):
     raise SystemExit("Unexpected big_flies.png dimensions: %s" % (flies.size,))
 with open("enemy_data.h", "w") as out:
@@ -178,7 +218,7 @@ with open("enemy_data.h", "w") as out:
     out.write("static const uint32_t enemy_pixels[4][1024] __attribute__((aligned(64))) = {\n")
     for x in (0, 32, 64, 96):
         out.write("{\n")
-        write_array(out, rgba_to_gs(remove_white_matte(flies.crop((x, 0, x + 32, 32)), 238)))
+        write_array(out, rgba_to_gs(remove_edge_matte(flies.crop((x, 0, x + 32, 32)), "white")))
         out.write("},\n")
     out.write("};\n#endif\n")
 
@@ -190,7 +230,7 @@ menu_bg.alpha_composite(title.crop((0, 0, 480, 272)).resize((256, 145), NEAREST)
 # The title logo artwork occupies the upper part of logo.png; discard the
 # unused black canvas and fit the full logo into a VRAM-safe 256x128 texture.
 menu_logo = Image.new("RGBA", (256, 128), (0, 0, 0, 0))
-logo_crop = remove_black_matte(logo.crop((98, 0, 373, 140)))
+logo_crop = remove_edge_matte(logo.crop((98, 0, 373, 140)), "black")
 logo_crop.thumbnail((256, 124), NEAREST)
 menu_logo.alpha_composite(logo_crop, ((256 - logo_crop.width) // 2, 2))
 menu_prompt = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
