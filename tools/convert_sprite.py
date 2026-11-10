@@ -109,20 +109,35 @@ with open("sprite_data.h", "w") as out:
         out.write("},\n")
     out.write("};\n#endif\n")
 
-# Original Basement room: tiled floor plus wall strips cut from the actual room atlas.
+# Compose a complete Basement room from the real floor and wall artwork.
+# The source wall sheet contains the top/left wall corner in its upper-left cell.
+# Keep the floor at its native tile proportions and build four continuous wall runs.
 basement = Image.open("assets/backdrop/01_basement.png").convert("RGBA")
 floor = Image.open("assets/backdrop/01_lbasementfloor.png").convert("RGBA")
-room = Image.new("RGBA", (256, 256), (0, 0, 0, 255))
-floor_tile = floor.resize((256, 91), NEAREST)
-room.alpha_composite(floor_tile, (0, 32))
-room.alpha_composite(floor_tile, (0, 123))
-room.alpha_composite(floor_tile.crop((0, 0, 256, 10)), (0, 214))
-wall_strip = basement.crop((0, 0, 240, 48)).resize((256, 32), NEAREST)
-room.alpha_composite(wall_strip, (0, 0))
-room.alpha_composite(wall_strip.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 224))
-side_strip = wall_strip.transpose(Image.Transpose.ROTATE_90).resize((32, 256), NEAREST)
-room.alpha_composite(side_strip, (0, 0))
-room.alpha_composite(side_strip.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (224, 0))
+room = Image.new("RGBA", (256, 256), (18, 14, 15, 255))
+
+# The floor atlas is a 2x2 set of large floor tiles. Scale it once, then repeat
+# vertically so seams and grout remain visible instead of stretching one strip.
+floor_tile = floor.resize((176, 63), NEAREST)
+for y in (40, 103, 166):
+    room.alpha_composite(floor_tile, (40, y))
+
+# Extract the actual stone/earth wall surfaces, excluding most of the black void
+# outside the room. The opposite walls use mirrored copies of the same artwork.
+top_wall = basement.crop((10, 0, 238, 48)).resize((216, 40), NEAREST)
+left_wall = basement.crop((0, 40, 52, 160)).resize((40, 176), NEAREST)
+room.alpha_composite(top_wall, (20, 0))
+room.alpha_composite(top_wall.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (20, 216))
+room.alpha_composite(left_wall, (0, 40))
+room.alpha_composite(left_wall.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (216, 40))
+
+# Close the four corners with the matching wall artwork, retaining the dark
+# outer edge that gives Basement rooms their recessed, hand-painted outline.
+corner = basement.crop((0, 0, 52, 52)).resize((40, 40), NEAREST)
+room.alpha_composite(corner, (0, 0))
+room.alpha_composite(corner.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (216, 0))
+room.alpha_composite(corner.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, 216))
+room.alpha_composite(corner.transpose(Image.Transpose.ROTATE_180), (216, 216))
 with open("room_data.h", "w") as out:
     out.write("#ifndef ROOM_DATA_H\n#define ROOM_DATA_H\n#include <stdint.h>\n")
     out.write("static const uint32_t room_pixels[65536] __attribute__((aligned(64))) = {\n")
