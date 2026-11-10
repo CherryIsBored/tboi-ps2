@@ -1,7 +1,10 @@
 #include "game.h"
 #include "sprite_data.h"
 #include "pickup_data.h"
-#include "floor_data.h"
+#include "room_data.h"
+#include "enemy_data.h"
+#include "menu_data.h"
+#include "heart_data.h"
 
 static Player isaac;
 static Tear tears[16];
@@ -9,8 +12,12 @@ static Enemy enemies[6];
 static Pickup pickups[8];
 static int coins = 0, keys = 0, bombs = 0;
 static GSTEXTURE isaacTextures[4][10];
+static GSTEXTURE isaacShootTextures[4];
+static GSTEXTURE enemyTextures[4];
 static GSTEXTURE pickupTextures[4];
-static GSTEXTURE floorTexture;
+static GSTEXTURE roomTexture;
+static GSTEXTURE heartTexture;
+static GSTEXTURE menuBackgroundTexture, menuLogoTexture, menuPromptTexture;
 
 static float roomLeft, roomRight, roomTop, roomBottom;
 static int tearCooldown = 0;
@@ -22,8 +29,26 @@ static int roomNumber = 1;
 static int roomCleared = 0;
 static int enemiesRemaining = 0;
 static int hitFlash = 0;
+static int gameStarted = 0;
+static int shootTimer = 0;
+static int menuTick = 0;
+static int enemyAnimTick = 0;
 
 static float absf(float v) { return v < 0.0f ? -v : v; }
+
+static void init_texture(GSGLOBAL* gs, GSTEXTURE* texture, int width, int height, const uint32_t* pixels) {
+    texture->Width = width;
+    texture->Height = height;
+    texture->PSM = GS_PSM_CT32;
+    texture->ClutPSM = GS_PSM_CT32;
+    texture->Mem = (u32*)pixels;
+    texture->Clut = NULL;
+    texture->VramClut = 0;
+    texture->Filter = GS_FILTER_NEAREST;
+    texture->Delayed = GS_SETTING_OFF;
+    texture->Vram = gsKit_vram_alloc(gs, gsKit_texture_size(width, height, GS_PSM_CT32), GSKIT_ALLOC_USERBUFFER);
+    gsKit_texture_upload(gs, texture);
+}
 
 static void drop_pickup(float x, float y, int seed) {
     for (int i = 0; i < 8; i++) {
@@ -52,10 +77,10 @@ static void spawn_room() {
 }
 
 void game_init(int width, int height, GSGLOBAL* gs) {
-    roomLeft = width / 2.0f - 145.0f;
-    roomRight = width / 2.0f + 145.0f;
-    roomTop = height / 2.0f - 110.0f;
-    roomBottom = height / 2.0f + 110.0f;
+    roomLeft = 28.0f;
+    roomRight = width - 28.0f;
+    roomTop = 34.0f;
+    roomBottom = height - 28.0f;
 
     isaac.x = width / 2.0f;
     isaac.y = height / 2.0f;
@@ -67,58 +92,62 @@ void game_init(int width, int height, GSGLOBAL* gs) {
     facing = walkFrame = walkTick = 0;
     roomNumber = 1;
     hitFlash = 0;
+    gameStarted = 0;
+    shootTimer = 0;
+    menuTick = 0;
+    enemyAnimTick = 0;
 
     for (int i = 0; i < 16; i++) tears[i].active = 0;
 
     for (int d = 0; d < 4; d++) {
-        for (int f = 0; f < 10; f++) {
-            GSTEXTURE* texture = &isaacTextures[d][f];
-            texture->Width = 32;
-            texture->Height = 48;
-            texture->PSM = GS_PSM_CT32;
-            texture->ClutPSM = GS_PSM_CT32;
-            texture->Mem = (u32*)isaac_pixels[d][f];
-            texture->Clut = NULL;
-            texture->VramClut = 0;
-            texture->Filter = GS_FILTER_NEAREST;
-            texture->Delayed = GS_SETTING_OFF;
-            texture->Vram = gsKit_vram_alloc(gs, gsKit_texture_size(32, 48, GS_PSM_CT32), GSKIT_ALLOC_USERBUFFER);
-            gsKit_texture_upload(gs, texture);
-        }
+        for (int f = 0; f < 10; f++)
+            init_texture(gs, &isaacTextures[d][f], 32, 48, isaac_pixels[d][f]);
+        init_texture(gs, &isaacShootTextures[d], 32, 48, isaac_shoot_pixels[d]);
     }
-    floorTexture.Width = 256; floorTexture.Height = 256;
-    floorTexture.PSM = GS_PSM_CT32; floorTexture.ClutPSM = GS_PSM_CT32;
-    floorTexture.Mem = (u32*)floor_pixels; floorTexture.Clut = NULL;
-    floorTexture.VramClut = 0; floorTexture.Filter = GS_FILTER_NEAREST;
-    floorTexture.Delayed = GS_SETTING_OFF;
-    floorTexture.Vram = gsKit_vram_alloc(gs, gsKit_texture_size(256, 256, GS_PSM_CT32), GSKIT_ALLOC_USERBUFFER);
-    gsKit_texture_upload(gs, &floorTexture);
-
-    for (int p = 0; p < 4; p++) {
-        GSTEXTURE* texture = &pickupTextures[p];
-        texture->Width = 16; texture->Height = 16;
-        texture->PSM = GS_PSM_CT32; texture->ClutPSM = GS_PSM_CT32;
-        texture->Mem = (u32*)pickup_pixels[p]; texture->Clut = NULL;
-        texture->VramClut = 0; texture->Filter = GS_FILTER_NEAREST;
-        texture->Delayed = GS_SETTING_OFF;
-        texture->Vram = gsKit_vram_alloc(gs, gsKit_texture_size(16, 16, GS_PSM_CT32), GSKIT_ALLOC_USERBUFFER);
-        gsKit_texture_upload(gs, texture);
-    }
+    init_texture(gs, &roomTexture, 256, 256, room_pixels);
+    for (int e = 0; e < 4; e++)
+        init_texture(gs, &enemyTextures[e], 32, 32, enemy_pixels[e]);
+    for (int p = 0; p < 4; p++)
+        init_texture(gs, &pickupTextures[p], 16, 16, pickup_pixels[p]);
+    init_texture(gs, &heartTexture, 16, 16, heart_pixels);
+    init_texture(gs, &menuBackgroundTexture, 256, 256, menu_bg_pixels);
+    init_texture(gs, &menuLogoTexture, 256, 128, menu_logo_pixels);
+    init_texture(gs, &menuPromptTexture, 128, 128, menu_prompt_pixels);
     spawn_room();
 }
 
-void game_update(int moveX, int moveY, int fireX, int fireY) {
+void game_update(int moveX, int moveY, int fireX, int fireY, int startPressed) {
+    if (!gameStarted) {
+        menuTick++;
+        if (startPressed) {
+            gameStarted = 1;
+            spawn_room();
+        }
+        return;
+    }
+
+    if (shootTimer > 0) shootTimer--;
+    enemyAnimTick++;
+
     float dx = (float)moveX, dy = (float)moveY;
     if (dx != 0 && dy != 0) { dx *= 0.7071f; dy *= 0.7071f; }
 
-    if (moveX < 0) facing = 2;
-    else if (moveX > 0) facing = 3;
-    else if (moveY < 0) facing = 1;
-    else if (moveY > 0) facing = 0;
+    if (fireX || fireY) {
+        if (absf((float)fireX) > absf((float)fireY)) facing = fireX < 0 ? 2 : 3;
+        else if (fireY) facing = fireY < 0 ? 1 : 0;
+        shootTimer = 8;
+        walkFrame = 0;
+        walkTick = 0;
+    } else {
+        if (moveX < 0) facing = 2;
+        else if (moveX > 0) facing = 3;
+        else if (moveY < 0) facing = 1;
+        else if (moveY > 0) facing = 0;
+    }
 
     if (moveX || moveY) {
-        if (++walkTick >= 2) { walkTick = 0; walkFrame = (walkFrame + 1) % 10; }
-    } else { walkFrame = 0; walkTick = 0; }
+        if (shootTimer == 0 && ++walkTick >= 2) { walkTick = 0; walkFrame = (walkFrame + 1) % 10; }
+    } else if (shootTimer == 0) { walkFrame = 0; walkTick = 0; }
 
     isaac.x += dx * isaac.speed;
     isaac.y += dy * isaac.speed;
@@ -131,7 +160,9 @@ void game_update(int moveX, int moveY, int fireX, int fireY) {
     if ((fireX || fireY) && tearCooldown == 0) {
         for (int i = 0; i < 16; i++) if (!tears[i].active) {
             tears[i].x = isaac.x; tears[i].y = isaac.y;
-            tears[i].vx = fireX * 6.0f; tears[i].vy = fireY * 6.0f;
+            float fx = (float)fireX, fy = (float)fireY;
+            if (fx != 0.0f && fy != 0.0f) { fx *= 0.7071f; fy *= 0.7071f; }
+            tears[i].vx = fx * 6.0f; tears[i].vy = fy * 6.0f;
             tears[i].active = 1; tearCooldown = 12; break;
         }
     }
@@ -204,19 +235,30 @@ void game_update(int moveX, int moveY, int fireX, int fireY) {
 
 void game_draw(GSGLOBAL* gs) {
     u64 background = GS_SETREG_RGBAQ(20, 17, 24, 0x80, 0);
-    u64 floor = GS_SETREG_RGBAQ(75, 65, 65, 0x80, 0);
-    u64 wall = GS_SETREG_RGBAQ(105, 85, 85, 0x80, 0);
     u64 tearColor = GS_SETREG_RGBAQ(100, 190, 255, 0x80, 0);
     gsKit_clear(gs, background);
+
+    if (!gameStarted) {
+        gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
+        gsKit_set_test(gs, GS_ATEST_OFF);
+        gsKit_prim_sprite_texture(gs, &menuBackgroundTexture, 0, 0, 0, 0,
+            gs->Width, gs->Height, 256, 145, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+        gsKit_prim_sprite_texture(gs, &menuLogoTexture, gs->Width * 0.5f - 170, 8, 0, 0,
+            gs->Width * 0.5f + 170, 122, 256, 85, 2, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+        if ((menuTick / 20) % 2 == 0) {
+            gsKit_prim_sprite_texture(gs, &menuPromptTexture, gs->Width * 0.5f - 62, gs->Height - 118, 0, 0,
+                gs->Width * 0.5f + 62, gs->Height - 10, 125, 128, 3, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+        }
+        gsKit_set_test(gs, GS_ATEST_ON);
+        gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
+        return;
+    }
+
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     gsKit_set_test(gs, GS_ATEST_OFF);
-    gsKit_prim_sprite_texture(gs, &floorTexture, roomLeft, roomTop, 0, 0, roomRight, roomBottom, 256, 256, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
+    gsKit_prim_sprite_texture(gs, &roomTexture, roomLeft, roomTop, 0, 0, roomRight, roomBottom, 256, 256, 1, GS_SETREG_RGBAQ(0x80,0x80,0x80,0x80,0));
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
-    gsKit_prim_sprite(gs, roomLeft, roomTop, roomRight, roomTop + 12, 2, wall);
-    gsKit_prim_sprite(gs, roomLeft, roomBottom - 12, roomRight, roomBottom, 2, wall);
-    gsKit_prim_sprite(gs, roomLeft, roomTop, roomLeft + 12, roomBottom, 2, wall);
-    gsKit_prim_sprite(gs, roomRight - 12, roomTop, roomRight, roomBottom, 2, wall);
 
     // Door openings become visible after every enemy is defeated.
     u64 doorColor = roomCleared ? GS_SETREG_RGBAQ(80, 170, 90, 0x80, 0) : GS_SETREG_RGBAQ(45, 35, 38, 0x80, 0);
@@ -236,15 +278,23 @@ void game_draw(GSGLOBAL* gs) {
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
 
+    gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
+    gsKit_set_test(gs, GS_ATEST_OFF);
     for (int e = 0; e < 6; e++) if (enemies[e].active) {
-        u64 enemyColor = enemies[e].flash ? GS_SETREG_RGBAQ(255, 255, 255, 0x80, 0) : GS_SETREG_RGBAQ(170, 65, 65, 0x80, 0);
-        gsKit_prim_sprite(gs, enemies[e].x - 10, enemies[e].y - 10, enemies[e].x + 10, enemies[e].y + 10, 4, enemyColor);
+        int frame = (enemyAnimTick / 5 + e) % 4;
+        u64 tint = enemies[e].flash ? GS_SETREG_RGBAQ(255, 255, 255, 0x80, 0) : GS_SETREG_RGBAQ(0x80, 0x80, 0x80, 0x80, 0);
+        gsKit_prim_sprite_texture(gs, &enemyTextures[frame],
+            enemies[e].x - 14, enemies[e].y - 14, 0, 0,
+            enemies[e].x + 14, enemies[e].y + 14, 32, 32, 4, tint);
     }
+    gsKit_set_test(gs, GS_ATEST_ON);
+    gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
 
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     gsKit_set_test(gs, GS_ATEST_OFF);
     u64 playerColor = (damageCooldown > 0 && (damageCooldown & 4)) ? GS_SETREG_RGBAQ(255, 100, 100, 0x80, 0) : GS_SETREG_RGBAQ(0x80, 0x80, 0x80, 0x80, 0);
-    gsKit_prim_sprite_texture(gs, &isaacTextures[facing][walkFrame],
+    GSTEXTURE* playerTexture = shootTimer > 0 ? &isaacShootTextures[facing] : &isaacTextures[facing][walkFrame];
+    gsKit_prim_sprite_texture(gs, playerTexture,
         isaac.x - 16, isaac.y - 24, 0, 0, isaac.x + 16, isaac.y + 24, 32, 48, 5, playerColor);
     gsKit_set_test(gs, GS_ATEST_ON);
     gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
@@ -252,12 +302,16 @@ void game_draw(GSGLOBAL* gs) {
     for (int i = 0; i < 16; i++) if (tears[i].active)
         gsKit_prim_sprite(gs, tears[i].x - 4, tears[i].y - 4, tears[i].x + 4, tears[i].y + 4, 6, tearColor);
 
-    // Simple heart HUD: one red half-heart block per two health units.
+    // Original heart icon from ui_hearts.png.
+    gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
+    gsKit_set_test(gs, GS_ATEST_OFF);
     for (int h = 0; h < 3; h++) {
-        u64 c = (isaac.health >= (h + 1) * 2) ? GS_SETREG_RGBAQ(205, 55, 65, 0x80, 0) :
-                (isaac.health > h * 2 ? GS_SETREG_RGBAQ(205, 55, 65, 0x80, 0) : GS_SETREG_RGBAQ(55, 45, 48, 0x80, 0));
-        gsKit_prim_sprite(gs, roomLeft + 8 + h * 15, roomTop + 17, roomLeft + 19 + h * 15, roomTop + 27, 7, c);
+        u64 c = isaac.health > h * 2 ? GS_SETREG_RGBAQ(0x80, 0x80, 0x80, 0x80, 0) : GS_SETREG_RGBAQ(75, 75, 75, 0x80, 0);
+        gsKit_prim_sprite_texture(gs, &heartTexture, roomLeft + 8 + h * 19, roomTop + 13,
+            0, 0, roomLeft + 24 + h * 19, roomTop + 29, 16, 16, 7, c);
     }
+    gsKit_set_test(gs, GS_ATEST_ON);
+    gsKit_set_primalpha(gs, GS_BLEND_BACK2FRONT, 0);
     // Original pickup atlas icons from assets/ui/hudpickups.png.
     gsKit_set_primalpha(gs, GS_SETREG_ALPHA(0, 1, 0, 1, 0), 0);
     gsKit_set_test(gs, GS_ATEST_OFF);
